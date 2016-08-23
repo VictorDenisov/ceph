@@ -291,6 +291,41 @@ int execute_list_images(const po::variables_map &vm) {
   return 0;
 }
 
+int execute_group_snapshot(const po::variables_map &vm) {
+  size_t arg_index = 0;
+
+  std::string group_name;
+  std::string pool_name;
+
+  int r = utils::get_pool_group_names(vm, at::ARGUMENT_MODIFIER_NONE,
+                                      &arg_index, &pool_name, &group_name);
+  if (r < 0) {
+    return r;
+  }
+
+  std::cout << pool_name << "." << group_name << std::endl;
+
+  librados::IoCtx io_ctx;
+  librados::Rados rados;
+
+  r = utils::init(pool_name, &rados, &io_ctx);
+  if (r < 0) {
+    return r;
+  }
+
+  librbd::RBD rbd;
+  r = rbd.group_snapshot(io_ctx, group_name.c_str(), "temp_snapshot");
+  if (r < 0) {
+    return r;
+  }
+
+  std::string s;
+  std::cout << "Waiting for your input" << std::endl;
+  std::cin >> s;
+
+  return 0;
+}
+
 void get_create_arguments(po::options_description *positional,
                           po::options_description *options) {
   at::add_group_spec_options(positional, options, at::ARGUMENT_MODIFIER_NONE);
@@ -357,6 +392,11 @@ void get_list_images_arguments(po::options_description *positional,
   at::add_group_spec_options(positional, options, at::ARGUMENT_MODIFIER_NONE);
 }
 
+void get_group_snapshot_arguments(po::options_description *positional,
+				  po::options_description *options) {
+  at::add_group_spec_options(positional, options, at::ARGUMENT_MODIFIER_NONE);
+}
+
 Shell::Action action_create(
   {"group", "create"}, {}, "Create a consistency group.",
   "", &get_create_arguments, &execute_create);
@@ -375,6 +415,9 @@ Shell::Action action_remove_image(
 Shell::Action action_list_images(
   {"group", "image", "list"}, {}, "List images in a consistency group.",
   "", &get_list_images_arguments, &execute_list_images);
+Shell::Action action_quiesce_images(
+  {"group", "snapshot"}, {}, "Make a snapshot of a group",
+  "", &get_group_snapshot_arguments, &execute_group_snapshot);
 } // namespace snap
 } // namespace action
 } // namespace rbd
