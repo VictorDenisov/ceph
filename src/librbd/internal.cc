@@ -4164,5 +4164,71 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     return 0;
   }
 
+  int group_snapshot(librados::IoCtx& group_ioctx, const char *group_name,
+		     const char *snap_name)
+  {
+    librados::Rados rados(group_ioctx);
+    CephContext *cct = (CephContext *)group_ioctx.cct();
+    int r = 0;
+    std::vector<group_image_status_t> images_statuses;
+    group_image_list(group_ioctx, group_name, images_statuses);
+    for (auto image: images_statuses) {
+      if (image.state != GROUP_IMAGE_STATE_ATTACHED) {
+	ldout(cct, 1) << "Warning: image " << image.name
+		      << " is not properly added." << dendl;
+
+	return -1;
+      }
+    }
+
+    librbd::RBD rbd;
+    std::vector<librbd::IoCtx*> image_io_ctxs;
+    std::vector<librbd::Image*> images;
+
+    for (auto i: images_statuses) {
+      librbd::IoCtx *image_io_ctx = new librbd::IoCtx;
+      librbd::Image *image = new librbd::Image;
+
+      IoCtx ioctx;
+      r = rados.ioctx_create2(i.pool, *image_io_ctx);
+      if (r < 0) {
+	ldout(cct, 1) << "Failed to create pool" << dendl;
+      }
+
+      r = rbd.open(*image_io_ctx, *image, i.name.c_str());
+      if (r < 0) {
+	ldout(cct, 1) << "Failed to open image" << dendl;
+      }
+
+      r = image->lock_acquire();
+      if (r < 0) {
+	ldout(cct, 1) << "Failed to acquire lock" << dendl;
+      }
+
+      image_io_ctxs.push_back(image_io_ctx);
+      images.push_back(image);
+    }
+
+    std::string s;
+    std::cout << "Quiesced image. Waiting for your input" << std::endl;
+    std::cin >> s;
+
+    int n = image_io_ctxs.size();
+
+    for (int i = 0; i < n; ++i) {
+      r = images[i]->snap_create(snap_name);
+    }
+
+    for (auto ictx : image_io_ctxs) {
+      delete ictx;
+    }
+
+    for (auto img : images) {
+      delete img;
+    }
+
+    return r;
+  }
+
 
 }

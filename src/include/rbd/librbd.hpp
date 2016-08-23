@@ -173,6 +173,9 @@ public:
   int group_image_list(IoCtx& io_ctx, const char *group_name,
 		       std::vector<group_image_status_t>& images);
 
+  int group_snapshot(IoCtx& io_ctx, const char *group_name,
+		     const char *snap_name);
+
 private:
   /* We don't allow assignment or copying */
   RBD(const RBD& rhs);
@@ -269,6 +272,8 @@ public:
   int list_lockers(std::list<locker_t> *lockers,
 		   bool *exclusive, std::string *tag);
   int lock_exclusive(const std::string& cookie);
+  int lock_acquire();
+  int lock_release();
   int lock_shared(const std::string& cookie, const std::string& tag);
   int unlock(const std::string& cookie);
   int break_lock(const std::string& client, const std::string& cookie);

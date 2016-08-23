@@ -236,6 +236,8 @@ namespace librbd {
   int group_image_list(librados::IoCtx& group_ioctx, const char *group_name,
 		       std::vector<group_image_status_t>& images);
   int image_get_group(ImageCtx *ictx, group_spec_t *group_spec);
+  int group_snapshot(librados::IoCtx& group_ioctx, const char *group_name,
+		     const char *snap_name);
 }
 
 #endif

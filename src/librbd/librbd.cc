@@ -531,6 +531,16 @@ namespace librbd {
     return r;
   }
 
+  int RBD::group_snapshot(IoCtx& group_ioctx, const char *group_name,
+			  const char *snap_name)
+  {
+    TracepointProvider::initialize<tracepoint_traits>(get_cct(group_ioctx));
+    tracepoint(librbd, group_snapshot_enter, group_ioctx.get_pool_name().c_str(),
+	       group_ioctx.get_id(), group_name);
+    int r = librbd::group_snapshot(group_ioctx, group_name, snap_name);
+    tracepoint(librbd, group_snapshot_exit, r);
+    return r;
+  }
 
   RBD::AioCompletion::AioCompletion(void *cb_arg, callback_t complete_cb)
   {
@@ -969,6 +979,24 @@ namespace librbd {
     tracepoint(librbd, lock_exclusive_enter, ictx, ictx->name.c_str(), ictx->snap_name.c_str(), ictx->read_only, cookie.c_str());
     int r = librbd::lock(ictx, true, cookie, "");
     tracepoint(librbd, lock_exclusive_exit, r);
+    return r;
+  }
+
+  int Image::lock_acquire()
+  {
+    ImageCtx *ictx = (ImageCtx *)ctx;
+
+    int r = librbd::lock_acquire(ictx);
+
+    return r;
+  }
+
+  int Image::lock_release()
+  {
+    ImageCtx *ictx = (ImageCtx *)ctx;
+
+    int r = librbd::lock_release(ictx);
+
     return r;
   }
 
