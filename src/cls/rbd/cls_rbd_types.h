@@ -13,6 +13,7 @@
 #include <string>
 
 #define RBD_GROUP_REF "rbd_group_ref"
+#define RBD_GROUP_STATE "rbd_group_state"
 
 namespace ceph { class Formatter; }
 
@@ -44,6 +45,24 @@ inline void decode(GroupImageLinkState &state, bufferlist::iterator& it)
   uint8_t int_state;
   ::decode(int_state, it);
   state = static_cast<GroupImageLinkState>(int_state);
+}
+
+enum GroupState {
+  GROUP_STATE_NORMAL,
+  GROUP_STATE_CAPTURING_LOCK
+};
+
+inline void encode(const GroupState &state, bufferlist& bl,
+		   uint64_t features=0)
+{
+  ::encode(static_cast<uint8_t>(state), bl);
+}
+
+inline void decode(GroupState &state, bufferlist::iterator& it)
+{
+  uint8_t int_state;
+  ::decode(int_state, it);
+  state = static_cast<GroupState>(int_state);
 }
 
 struct MirrorPeer {

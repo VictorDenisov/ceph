@@ -144,6 +144,8 @@ cls_method_handle_t h_group_image_set;
 cls_method_handle_t h_image_add_group;
 cls_method_handle_t h_image_remove_group;
 cls_method_handle_t h_image_get_group;
+cls_method_handle_t h_group_state_set;
+cls_method_handle_t h_group_state_get;
 
 #define RBD_MAX_KEYS_READ 64
 #define RBD_SNAP_KEY_PREFIX "snapshot_"
@@ -4692,6 +4694,68 @@ int image_get_group(cls_method_context_t hctx,
   return 0;
 }
 
+/**
+ * Input:
+ *
+ * Output:
+ *
+ */
+int group_state_set(cls_method_context_t hctx,
+		    bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_state_set");
+
+  cls::rbd::GroupState st;
+  try {
+    bufferlist::iterator iter = in->begin();
+    ::decode(st, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  bufferlist bl;
+  ::encode(st, bl);
+  int r = cls_cxx_map_set_val(hctx, RBD_GROUP_STATE, &bl);
+  if (r < 0) {
+    CLS_ERR("error setting group state: %s", cpp_strerror(r).c_str());
+    return r;
+  }
+
+  return 0;
+}
+
+/**
+ * Input:
+ *
+ * Output:
+ *
+ */
+int group_state_get(cls_method_context_t hctx,
+		    bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_state_get");
+
+  bufferlist stbl;
+  int r = cls_cxx_map_get_val(hctx, RBD_GROUP_STATE, &stbl);
+  if (r < 0 && r != -ENOENT) {
+    return r;
+  }
+
+  cls::rbd::GroupState st = cls::rbd::GROUP_STATE_NORMAL;
+
+  if (r != -ENOENT) {
+    bufferlist::iterator iter = stbl.begin();
+    try {
+      ::decode(st, iter);
+    } catch (const buffer::error &err) {
+      return -EINVAL;
+    }
+  }
+
+  ::encode(st, *out);
+  return 0;
+}
+
 void __cls_init()
 {
   CLS_LOG(20, "Loaded rbd class!");
@@ -4943,5 +5007,11 @@ void __cls_init()
   cls_register_cxx_method(h_class, "image_get_group",
 			  CLS_METHOD_RD,
 			  image_get_group, &h_image_get_group);
+  cls_register_cxx_method(h_class, "group_state_set",
+			  CLS_METHOD_RD | CLS_METHOD_WR,
+			  group_state_set, &h_group_state_set);
+  cls_register_cxx_method(h_class, "group_state_get",
+			  CLS_METHOD_RD,
+			  group_state_get, &h_group_state_get);
   return;
 }

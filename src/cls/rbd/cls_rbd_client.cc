@@ -1666,5 +1666,32 @@ namespace librbd {
       return 0;
     }
 
+    int group_state_set(librados::IoCtx *ioctx, const std::string &oid,
+			const cls::rbd::GroupState &st)
+    {
+      bufferlist in, out;
+
+      ::encode(st, in);
+      return ioctx->exec(oid, "rbd", "group_state_set", in, out);
+    }
+
+    int group_state_get(librados::IoCtx *ioctx, const std::string &oid,
+			cls::rbd::GroupState *st)
+    {
+      bufferlist in, out;
+      int r = ioctx->exec(oid, "rbd", "group_state_get", in, out);
+      if (r < 0)
+	return r;
+
+      bufferlist::iterator iter = out.begin();
+      try {
+	::decode(*st, iter);
+      } catch (const buffer::error &err) {
+	return -EBADMSG;
+      }
+
+      return 0;
+    }
+
   } // namespace cls_client
 } // namespace librbd
