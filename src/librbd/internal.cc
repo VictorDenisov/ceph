@@ -4181,6 +4181,21 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       }
     }
 
+    string group_id;
+
+    r = cls_client::dir_get_id(&group_ioctx, RBD_GROUP_DIRECTORY,
+			       group_name, &group_id);
+    if (r < 0) {
+      lderr(cct) << "error reading consistency group id object: "
+                 << cpp_strerror(r)
+        	 << dendl;
+      return r;
+    }
+    string group_header_oid = util::group_header_name(group_id);
+
+    cls_client::group_state_set(&group_ioctx, group_header_oid,
+				cls::rbd::GROUP_STATE_CAPTURING_LOCK);
+
     librbd::RBD rbd;
     std::vector<librbd::IoCtx*> image_io_ctxs;
     std::vector<librbd::Image*> images;
@@ -4213,11 +4228,39 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     std::cout << "Quiesced image. Waiting for your input" << std::endl;
     std::cin >> s;
 
+    cls_client::group_state_set(&group_ioctx, group_header_oid,
+				cls::rbd::GROUP_STATE_SNAPSHOTTING);
+
+
     int n = image_io_ctxs.size();
 
     for (int i = 0; i < n; ++i) {
+      vector<librbd::snap_info_t> snaps;
+
+      std::cout << "Listing snapshots before" << std::endl;
+      images[i]->snap_list(snaps);
+      for (int j = 0; j < snaps.size(); ++j) {
+	std::cout << "id: " << snaps[j].id << std::endl;
+	std::cout << "name: " << snaps[j].name << std::endl;
+      }
+
       r = images[i]->snap_create(snap_name);
+
+      std::cout << "Snap create result: " << r << std::endl;
+
+      images[i]->snap_list(snaps);
+      std::cout << "Listing snapshots after" << std::endl;
+      for (int j = 0; j < snaps.size(); ++j) {
+	std::cout << "id: " << snaps[j].id << std::endl;
+	std::cout << "name: " << snaps[j].name << std::endl;
+      }
     }
+
+    std::cout << "Snapshot group. Waiting for your input" << std::endl;
+    std::cin >> s;
+
+    cls_client::group_state_set(&group_ioctx, group_header_oid,
+				cls::rbd::GROUP_STATE_RELEASING_LOCK);
 
     for (auto ictx : image_io_ctxs) {
       delete ictx;
@@ -4226,6 +4269,9 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     for (auto img : images) {
       delete img;
     }
+
+    cls_client::group_state_set(&group_ioctx, group_header_oid,
+				cls::rbd::GROUP_STATE_NORMAL);
 
     return r;
   }

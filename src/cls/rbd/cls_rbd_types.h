@@ -49,7 +49,9 @@ inline void decode(GroupImageLinkState &state, bufferlist::iterator& it)
 
 enum GroupState {
   GROUP_STATE_NORMAL,
-  GROUP_STATE_CAPTURING_LOCK
+  GROUP_STATE_CAPTURING_LOCK,
+  GROUP_STATE_SNAPSHOTTING,
+  GROUP_STATE_RELEASING_LOCK,
 };
 
 inline void encode(const GroupState &state, bufferlist& bl,
@@ -234,6 +236,36 @@ struct GroupSpec {
 };
 
 WRITE_CLASS_ENCODER(GroupSpec);
+
+struct ImageSnapshotRef {
+  int64_t pool;
+  string image_id;
+  snapid_t snap_id;
+  void encode(bufferlist &bl) const;
+  void decode(bufferlist::iterator &it);
+};
+
+WRITE_CLASS_ENCODER(ImageSnapshotRef);
+
+struct GroupSnapshot {
+  snapid_t id;
+  string name;
+  vector<ImageSnapshotRef> snaps;
+  void encode(bufferlist &bl) const;
+  void decode(bufferlist::iterator &it);
+};
+
+WRITE_CLASS_ENCODER(GroupSnapshot);
+
+struct PendingImageSnapshot {
+  int64_t pool;
+  string image_id;
+  string snap_name;
+  void encode(bufferlist &bl) const;
+  void decode(bufferlist::iterator &it);
+};
+
+WRITE_CLASS_ENCODER(PendingImageSnapshot);
 
 } // namespace rbd
 } // namespace cls

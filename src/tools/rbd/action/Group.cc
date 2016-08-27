@@ -314,7 +314,7 @@ int execute_group_snapshot(const po::variables_map &vm) {
   }
 
   librbd::RBD rbd;
-  r = rbd.group_snapshot(io_ctx, group_name.c_str(), "temp_snapshot");
+  r = rbd.group_snapshot(io_ctx, group_name.c_str(), "new_snapshot");
   if (r < 0) {
     return r;
   }
