@@ -316,5 +316,53 @@ bool GroupSpec::is_valid() const {
   return (!group_id.empty()) && (pool_id != -1);
 }
 
+void ImageSnapshotRef::encode(bufferlist &bl) const {
+  ENCODE_START(1, 1, bl);
+  ::encode(pool, bl);
+  ::encode(image_id, bl);
+  ::encode(snap_id, bl);
+  ENCODE_FINISH(bl);
+}
+
+void ImageSnapshotRef::decode(bufferlist::iterator &it) {
+  DECODE_START(1, it);
+  ::decode(pool, it);
+  ::decode(image_id, it);
+  ::decode(snap_id, it);
+  DECODE_FINISH(it);
+}
+
+void GroupSnapshot::encode(bufferlist &bl) const {
+  ENCODE_START(1, 1, bl);
+  ::encode(id, bl);
+  ::encode(name, bl);
+  ::encode(snaps, bl);
+  ENCODE_FINISH(bl);
+}
+
+void GroupSnapshot::decode(bufferlist::iterator &it) {
+  DECODE_START(1, it);
+  ::decode(id, it);
+  ::decode(name, it);
+  ::decode(snaps, it);
+  DECODE_FINISH(it);
+}
+
+void PendingImageSnapshot::encode(bufferlist &bl) const {
+  ENCODE_START(1, 1, bl);
+  ::encode(pool, bl);
+  ::encode(image_id, bl);
+  ::encode(snap_name, bl);
+  ENCODE_FINISH(bl);
+}
+
+void PendingImageSnapshot::decode(bufferlist::iterator &it) {
+  DECODE_START(1, it);
+  ::decode(pool, it);
+  ::decode(image_id, it);
+  ::decode(snap_name, it);
+  DECODE_FINISH(it);
+}
+
 } // namespace rbd
 } // namespace cls

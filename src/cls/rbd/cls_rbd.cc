@@ -146,6 +146,7 @@ cls_method_handle_t h_image_remove_group;
 cls_method_handle_t h_image_get_group;
 cls_method_handle_t h_group_state_set;
 cls_method_handle_t h_group_state_get;
+cls_method_handle_t h_group_snap_candidate_create;
 
 #define RBD_MAX_KEYS_READ 64
 #define RBD_SNAP_KEY_PREFIX "snapshot_"
@@ -154,6 +155,8 @@ cls_method_handle_t h_group_state_get;
 #define RBD_METADATA_KEY_PREFIX "metadata_"
 
 #define GROUP_SNAP_SEQ "snap_seq"
+#define GROUP_SNAP_CANDIDATE "candidate.snapshot"
+#define GROUP_PENDING_IMAGE_SNAP "pending_image_snap"
 
 static int snap_read_header(cls_method_context_t hctx, bufferlist& bl)
 {
@@ -4756,6 +4759,62 @@ int group_state_get(cls_method_context_t hctx,
   return 0;
 }
 
+/**
+ * Input:
+ *
+ * Output:
+ *
+ */
+int group_snap_candidate_create(cls_method_context_t hctx,
+				bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_candidate_create");
+  std::string snap_name;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(snap_name, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  bufferlist seqbl;
+  int r = cls_cxx_map_get_val(hctx, GROUP_SNAP_SEQ, &seqbl);
+  if (r < 0) {
+    return r;
+  }
+  iter = seqbl.begin();
+  uint64_t snap_seq = 0;
+  try {
+    ::decode(snap_seq, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+  cls::rbd::GroupSnapshot gs;
+  gs.id = snap_seq;
+  gs.name = snap_name;
+  
+  bufferlist cbl;
+  ::encode(gs, cbl);
+
+  r = cls_cxx_map_set_val(hctx, GROUP_SNAP_CANDIDATE, &cbl);
+  if (r < 0)
+    return r;
+
+  bufferlist state_bl;
+  ::encode(cls::rbd::GROUP_STATE_MAKING_INDIVIDUAL_SNAPS, state_bl);
+  r = cls_cxx_map_set_val(hctx, RBD_GROUP_STATE, &state_bl);
+  if (r < 0)
+    return r;
+
+  // Increase snap id only if we stored the candidate successfully.
+  ::encode(snap_seq + 1, seqbl);
+  r = cls_cxx_map_set_val(hctx, GROUP_SNAP_SEQ, &seqbl);
+  if (r < 0)
+    return r;
+
+  return 0;
+}
+
 void __cls_init()
 {
   CLS_LOG(20, "Loaded rbd class!");
@@ -5013,5 +5072,8 @@ void __cls_init()
   cls_register_cxx_method(h_class, "group_state_get",
 			  CLS_METHOD_RD,
 			  group_state_get, &h_group_state_get);
+  cls_register_cxx_method(h_class, "group_snap_candidate_create",
+			  CLS_METHOD_RD | CLS_METHOD_WR,
+			  group_snap_candidate_create, &h_group_snap_candidate_create);
   return;
 }

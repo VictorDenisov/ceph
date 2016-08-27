@@ -256,6 +256,8 @@ public:
   int copy_with_progress3(IoCtx& dest_io_ctx, const char *destname,
 			  ImageOptions& opts, ProgressContext &prog_ctx);
 
+  std::string get_id();
+
   /* striping */
   uint64_t get_stripe_unit() const;
   uint64_t get_stripe_count() const;

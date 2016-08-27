@@ -923,6 +923,11 @@ namespace librbd {
     return r;
   }
 
+  std::string Image::get_id() {
+    ImageCtx *ictx = (ImageCtx *)ctx;
+    return ictx->id;
+  }
+
   int Image::flatten()
   {
     ImageCtx *ictx = (ImageCtx *)ctx;

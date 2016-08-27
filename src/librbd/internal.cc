@@ -4224,6 +4224,8 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       images.push_back(image);
     }
 
+    int n = image_io_ctxs.size();
+
     std::string s;
     std::cout << "Quiesced image. Waiting for your input" << std::endl;
     std::cin >> s;
@@ -4231,13 +4233,22 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     cls_client::group_state_set(&group_ioctx, group_header_oid,
 				cls::rbd::GROUP_STATE_SNAPSHOTTING);
 
+    r = cls_client::group_snap_candidate_create(&group_ioctx, group_header_oid,
+						snap_name);
 
-    int n = image_io_ctxs.size();
+    if (r < 0)
+      goto release_locks;
 
     for (int i = 0; i < n; ++i) {
       vector<librbd::snap_info_t> snaps;
 
       std::cout << "Listing snapshots before" << std::endl;
+      cls::rbd::PendingImageSnapshot pending_image_snapshot;
+      pending_image_snapshot.pool = images_statuses[i].pool;
+      pending_image_snapshot.image_id = images[i]->get_id();
+      pending_image_snapshot.snap_name = snap_name;
+
+
       images[i]->snap_list(snaps);
       for (int j = 0; j < snaps.size(); ++j) {
 	std::cout << "id: " << snaps[j].id << std::endl;
@@ -4259,6 +4270,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     std::cout << "Snapshot group. Waiting for your input" << std::endl;
     std::cin >> s;
 
+release_locks:
     cls_client::group_state_set(&group_ioctx, group_header_oid,
 				cls::rbd::GROUP_STATE_RELEASING_LOCK);
 

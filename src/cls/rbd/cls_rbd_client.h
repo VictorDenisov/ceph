@@ -338,6 +338,12 @@ namespace librbd {
 			const cls::rbd::GroupState &st);
     int group_state_get(librados::IoCtx *ioctx, const std::string &oid,
 			cls::rbd::GroupState *st);
+    int group_snap_candidate_create(librados::IoCtx *ioctx,
+				    const std::string &oid,
+				    const std::string &snap_name);
+    int group_pending_image_snap_set(librados::IoCtx *ioctx,
+				     const std::string &oid,
+				     const cls::rbd::PendingImageSnapshot pending_image_snap);
 
   } // namespace cls_client
 } // namespace librbd
