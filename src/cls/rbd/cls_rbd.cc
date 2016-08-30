@@ -147,6 +147,7 @@ cls_method_handle_t h_image_get_group;
 cls_method_handle_t h_group_state_set;
 cls_method_handle_t h_group_state_get;
 cls_method_handle_t h_group_snap_candidate_create;
+cls_method_handle_t h_group_pending_image_snap_set;
 
 #define RBD_MAX_KEYS_READ 64
 #define RBD_SNAP_KEY_PREFIX "snapshot_"
@@ -4815,6 +4816,27 @@ int group_snap_candidate_create(cls_method_context_t hctx,
   return 0;
 }
 
+int group_pending_image_snap_set(cls_method_context_t hctx,
+				bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_pending_image_snap_set");
+  cls::rbd::PendingImageSnapshot pending_image_snap;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(pending_image_snap, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  bufferlist snap_bl;
+  ::encode(pending_image_snap, snap_bl);
+  int r = cls_cxx_map_set_val(hctx, GROUP_PENDING_IMAGE_SNAP, &snap_bl);
+  if (r < 0)
+    return r;
+
+  return 0;
+}
+
 void __cls_init()
 {
   CLS_LOG(20, "Loaded rbd class!");
@@ -5075,5 +5097,8 @@ void __cls_init()
   cls_register_cxx_method(h_class, "group_snap_candidate_create",
 			  CLS_METHOD_RD | CLS_METHOD_WR,
 			  group_snap_candidate_create, &h_group_snap_candidate_create);
+  cls_register_cxx_method(h_class, "group_pending_image_snap_set",
+			  CLS_METHOD_RD | CLS_METHOD_WR,
+			  group_pending_image_snap_set, &h_group_pending_image_snap_set);
   return;
 }
