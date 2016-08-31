@@ -4265,8 +4265,15 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
 
       r = images[i]->snap_create(snap_name);
 
+      cls::rbd::ImageSnapshotRef ref;
+      ref.pool = images_statuses[i].pool;
+      ref.image_id = images[i]->get_id();
+      ref.snap_id = images[i]->snap_get_id(snap_name);
+      cls_client::group_snap_candidate_add(&group_ioctx, group_header_oid,
+					   &ref);
 
       std::cout << "Snap create result: " << r << std::endl;
+      std::cin >> s;
 
       images[i]->snap_list(snaps);
       std::cout << "Listing snapshots after" << std::endl;

@@ -341,6 +341,10 @@ namespace librbd {
     int group_snap_candidate_create(librados::IoCtx *ioctx,
 				    const std::string &oid,
 				    const std::string &snap_name);
+    int group_snap_candidate_add(librados::IoCtx *ioctx,
+				 const std::string &oid,
+				 const cls::rbd::ImageSnapshotRef *ref);
+
     int group_pending_image_snap_set(librados::IoCtx *ioctx,
 				     const std::string &oid,
 				     const cls::rbd::PendingImageSnapshot *pending_image_snap);

@@ -147,6 +147,7 @@ cls_method_handle_t h_image_get_group;
 cls_method_handle_t h_group_state_set;
 cls_method_handle_t h_group_state_get;
 cls_method_handle_t h_group_snap_candidate_create;
+cls_method_handle_t h_group_snap_candidate_add;
 cls_method_handle_t h_group_pending_image_snap_set;
 
 #define RBD_MAX_KEYS_READ 64
@@ -4816,6 +4817,48 @@ int group_snap_candidate_create(cls_method_context_t hctx,
   return 0;
 }
 
+/**
+ * Input:
+ *
+ * Output:
+ *
+ */
+int group_snap_candidate_add(cls_method_context_t hctx,
+			     bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_candidate_add");
+  cls::rbd::ImageSnapshotRef ref;
+  bufferlist::iterator iter = in->begin();
+  try {
+    ::decode(ref, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  bufferlist cbl;
+  int r = cls_cxx_map_get_val(hctx, GROUP_SNAP_CANDIDATE, &cbl);
+  if (r < 0)
+    return r;
+
+  iter = cbl.begin();
+  cls::rbd::GroupSnapshot gs;
+  try {
+    ::decode(gs, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  gs.snaps.push_back(ref);
+
+  bufferlist obl;
+  ::encode(gs, obl);
+  r = cls_cxx_map_set_val(hctx, GROUP_SNAP_CANDIDATE, &obl);
+  if (r < 0)
+    return r;
+
+  return 0;
+}
+
 int group_pending_image_snap_set(cls_method_context_t hctx,
 				bufferlist *in, bufferlist *out)
 {
@@ -5097,6 +5140,9 @@ void __cls_init()
   cls_register_cxx_method(h_class, "group_snap_candidate_create",
 			  CLS_METHOD_RD | CLS_METHOD_WR,
 			  group_snap_candidate_create, &h_group_snap_candidate_create);
+  cls_register_cxx_method(h_class, "group_snap_candidate_add",
+			  CLS_METHOD_RD | CLS_METHOD_WR,
+			  group_snap_candidate_add, &h_group_snap_candidate_add);
   cls_register_cxx_method(h_class, "group_pending_image_snap_set",
 			  CLS_METHOD_RD | CLS_METHOD_WR,
 			  group_pending_image_snap_set, &h_group_pending_image_snap_set);

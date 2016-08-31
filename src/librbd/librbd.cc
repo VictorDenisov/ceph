@@ -1181,6 +1181,13 @@ namespace librbd {
     return r;
   }
 
+  snap_t Image::snap_get_id(string in_snap_name)
+  {
+    ImageCtx *ictx = (ImageCtx *)ctx;
+    RWLock::RLocker snap_locker(ictx->snap_lock);
+    return ictx->get_snap_id(in_snap_name);
+  }
+
   int Image::snap_set(const char *snap_name)
   {
     ImageCtx *ictx = (ImageCtx *)ctx;
