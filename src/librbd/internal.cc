@@ -4248,6 +4248,14 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       pending_image_snapshot.image_id = images[i]->get_id();
       pending_image_snapshot.snap_name = snap_name;
 
+      r = cls_client::group_pending_image_snap_set(&group_ioctx, group_header_oid,
+						   &pending_image_snapshot);
+
+      std::cout << "Created pending image snapshot. Waiting for your input" << std::endl;
+      std::cin >> s;
+
+      if (r < 0)
+	goto release_locks;
 
       images[i]->snap_list(snaps);
       for (int j = 0; j < snaps.size(); ++j) {
@@ -4256,6 +4264,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       }
 
       r = images[i]->snap_create(snap_name);
+
 
       std::cout << "Snap create result: " << r << std::endl;
 

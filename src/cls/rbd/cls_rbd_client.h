@@ -343,7 +343,7 @@ namespace librbd {
 				    const std::string &snap_name);
     int group_pending_image_snap_set(librados::IoCtx *ioctx,
 				     const std::string &oid,
-				     const cls::rbd::PendingImageSnapshot pending_image_snap);
+				     const cls::rbd::PendingImageSnapshot *pending_image_snap);
 
   } // namespace cls_client
 } // namespace librbd
