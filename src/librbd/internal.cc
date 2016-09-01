@@ -4239,6 +4239,9 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     if (r < 0)
       goto release_locks;
 
+    cls_client::group_state_set(&group_ioctx, group_header_oid,
+				cls::rbd::GROUP_STATE_MAKING_INDIVIDUAL_SNAPS);
+
     for (int i = 0; i < n; ++i) {
       vector<librbd::snap_info_t> snaps;
 
@@ -4272,6 +4275,9 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       cls_client::group_snap_candidate_add(&group_ioctx, group_header_oid,
 					   &ref);
 
+      cls_client::group_state_set(&group_ioctx, group_header_oid,
+				  cls::rbd::GROUP_STATE_MAKING_INDIVIDUAL_SNAPS);
+
       std::cout << "Snap create result: " << r << std::endl;
       std::cin >> s;
 
@@ -4282,6 +4288,10 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
 	std::cout << "name: " << snaps[j].name << std::endl;
       }
     }
+
+    cls_client::group_state_set(&group_ioctx, group_header_oid,
+				cls::rbd::GROUP_STATE_COMMITTING);
+
 
     cls_client::group_snap_commit(&group_ioctx, group_header_oid);
 
