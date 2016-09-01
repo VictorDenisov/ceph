@@ -148,6 +148,7 @@ cls_method_handle_t h_group_state_set;
 cls_method_handle_t h_group_state_get;
 cls_method_handle_t h_group_snap_candidate_create;
 cls_method_handle_t h_group_snap_candidate_add;
+cls_method_handle_t h_group_snap_commit;
 cls_method_handle_t h_group_pending_image_snap_set;
 
 #define RBD_MAX_KEYS_READ 64
@@ -4794,7 +4795,7 @@ int group_snap_candidate_create(cls_method_context_t hctx,
   cls::rbd::GroupSnapshot gs;
   gs.id = snap_seq;
   gs.name = snap_name;
-  
+
   bufferlist cbl;
   ::encode(gs, cbl);
 
@@ -4857,6 +4858,44 @@ int group_snap_candidate_add(cls_method_context_t hctx,
     return r;
 
   return 0;
+}
+
+/**
+ * Input:
+ *
+ * Output:
+ *
+ */
+int group_snap_commit(cls_method_context_t hctx,
+		      bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_commit");
+
+  bufferlist cbl;
+  int r = cls_cxx_map_get_val(hctx, GROUP_SNAP_CANDIDATE, &cbl);
+  if (r < 0)
+    return r;
+
+  bufferlist::iterator iter = cbl.begin();
+  cls::rbd::GroupSnapshot gs;
+  try {
+    ::decode(gs, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  r = cls_cxx_map_remove_key(hctx, GROUP_SNAP_CANDIDATE);
+  if (r < 0)
+    return r;
+
+  std::string key;
+  key_from_snap_id(gs.id, &key);
+
+  bufferlist obl;
+  ::encode(gs, obl);
+  r = cls_cxx_map_set_val(hctx, key, &obl);
+  if (r < 0)
+    return r;
 }
 
 int group_pending_image_snap_set(cls_method_context_t hctx,
@@ -5143,6 +5182,9 @@ void __cls_init()
   cls_register_cxx_method(h_class, "group_snap_candidate_add",
 			  CLS_METHOD_RD | CLS_METHOD_WR,
 			  group_snap_candidate_add, &h_group_snap_candidate_add);
+  cls_register_cxx_method(h_class, "group_snap_commit",
+			  CLS_METHOD_RD | CLS_METHOD_WR,
+			  group_snap_commit, &h_group_snap_commit);
   cls_register_cxx_method(h_class, "group_pending_image_snap_set",
 			  CLS_METHOD_RD | CLS_METHOD_WR,
 			  group_pending_image_snap_set, &h_group_pending_image_snap_set);

@@ -1711,6 +1711,12 @@ namespace librbd {
       return ioctx->exec(oid, "rbd", "group_snap_candidate_add", in, out);
     }
 
+    int group_snap_commit(librados::IoCtx *ioctx, const std::string &oid)
+    {
+      bufferlist in, out;
+      return ioctx->exec(oid, "rbd", "group_snap_commit", in, out);
+    }
+
     int group_pending_image_snap_set(librados::IoCtx *ioctx,
 				     const std::string &oid,
 				     const cls::rbd::PendingImageSnapshot *pending_image_snap)

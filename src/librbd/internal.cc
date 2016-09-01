@@ -4283,6 +4283,8 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       }
     }
 
+    cls_client::group_snap_commit(&group_ioctx, group_header_oid);
+
     std::cout << "Snapshot group. Waiting for your input" << std::endl;
     std::cin >> s;
 
