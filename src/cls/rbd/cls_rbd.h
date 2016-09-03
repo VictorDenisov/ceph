@@ -56,6 +56,80 @@ struct cls_rbd_parent {
 };
 WRITE_CLASS_ENCODER(cls_rbd_parent)
 
+enum SnapshotType {
+  SNAPSHOT_TYPE_SELF_STANDING = 0,
+  SNAPSHOT_TYPE_GROUP_MEMBER  = 1
+};
+
+struct SelfStandingSnapshot {
+  static const SnapshotType TYPE = SNAPSHOT_TYPE_SELF_STANDING;
+
+  SelfStandingSnapshot() {}
+
+  void encode(bufferlist& bl) const {}
+  void decode(__u8 version, bufferlist::iterator& it) {}
+};
+
+struct GroupMemberSnapshot {
+  static const SnapshotType TYPE = SNAPSHOT_TYPE_GROUP_MEMBER;
+
+  GroupMemberSnapshot() {}
+
+  GroupMemberSnapshot(int64_t _group_pool,
+		      const string &_group_id,
+		      const string &_snapshot_id) :group_pool(_group_pool),
+						   group_id(_group_id),
+						   snapshot_id(_snapshot_id) {}
+
+  int64_t group_pool;
+  string group_id;
+  string snapshot_id;
+
+  void encode(bufferlist& bl) const {
+    ::encode(group_pool, bl);
+    ::encode(group_id, bl);
+    ::encode(snapshot_id, bl);
+  }
+
+  void decode(__u8 version, bufferlist::iterator& it) {
+    ::decode(group_pool, it);
+    ::decode(group_id, it);
+    ::decode(snapshot_id, it);
+  }
+};
+
+class EncodeSnapshotTypeVisitor : public boost::static_visitor<void> {
+public:
+  explicit EncodeSnapshotTypeVisitor(bufferlist &bl) : m_bl(bl) {
+  }
+
+  template <typename T>
+  inline void operator()(const T& t) const {
+    ::encode(static_cast<uint32_t>(T::TYPE), m_bl);
+    t.encode(m_bl);
+  }
+
+private:
+  bufferlist &m_bl;
+};
+
+class DecodeSnapshotTypeVisitor : public boost::static_visitor<void> {
+public:
+  DecodeSnapshotTypeVisitor(__u8 version, bufferlist::iterator &iter)
+    : m_version(version), m_iter(iter) {
+  }
+
+  template <typename T>
+  inline void operator()(T& t) const {
+    t.decode(m_version, m_iter);
+  }
+private:
+  __u8 m_version;
+  bufferlist::iterator &m_iter;
+};
+
+typedef boost::variant<SelfStandingSnapshot, GroupMemberSnapshot> SnapshotRef;
+
 struct cls_rbd_snap {
   snapid_t id;
   string name;
@@ -64,6 +138,7 @@ struct cls_rbd_snap {
   uint8_t protection_status;
   cls_rbd_parent parent;
   uint64_t flags;
+  SnapshotRef snapshot_ref;
 
   /// true if we have a parent
   bool has_parent() const {
@@ -75,7 +150,7 @@ struct cls_rbd_snap {
                    flags(0)
     {}
   void encode(bufferlist& bl) const {
-    ENCODE_START(4, 1, bl);
+    ENCODE_START(5, 1, bl);
     ::encode(id, bl);
     ::encode(name, bl);
     ::encode(image_size, bl);
@@ -83,10 +158,11 @@ struct cls_rbd_snap {
     ::encode(parent, bl);
     ::encode(protection_status, bl);
     ::encode(flags, bl);
+    boost::apply_visitor(EncodeSnapshotTypeVisitor(bl), snapshot_ref);
     ENCODE_FINISH(bl);
   }
   void decode(bufferlist::iterator& p) {
-    DECODE_START(4, p);
+    DECODE_START(5, p);
     ::decode(id, p);
     ::decode(name, p);
     ::decode(image_size, p);
@@ -99,6 +175,24 @@ struct cls_rbd_snap {
     }
     if (struct_v >= 4) {
       ::decode(flags, p);
+    }
+    if (struct_v >= 5) {
+      uint32_t snap_type;
+      ::decode(snap_type, p);
+      switch (snap_type) {
+	case SNAPSHOT_TYPE_SELF_STANDING:
+	  snapshot_ref = SelfStandingSnapshot();
+	  break;
+	case SNAPSHOT_TYPE_GROUP_MEMBER:
+	  snapshot_ref = GroupMemberSnapshot();
+	  break;
+	default:
+	  snapshot_ref = SelfStandingSnapshot();
+	  break;
+      }
+      boost::apply_visitor(DecodeSnapshotTypeVisitor(struct_v, p), snapshot_ref);
+    } else {
+      snapshot_ref = SelfStandingSnapshot();
     }
     DECODE_FINISH(p);
   }

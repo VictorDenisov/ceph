@@ -4896,6 +4896,8 @@ int group_snap_commit(cls_method_context_t hctx,
   r = cls_cxx_map_set_val(hctx, key, &obl);
   if (r < 0)
     return r;
+
+  return 0;
 }
 
 int group_pending_image_snap_set(cls_method_context_t hctx,
