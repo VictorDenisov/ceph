@@ -4,6 +4,7 @@
 #ifndef CEPH_CLS_RBD_TYPES_H
 #define CEPH_CLS_RBD_TYPES_H
 
+#include <boost/variant.hpp>
 #include "include/int_types.h"
 #include "include/buffer.h"
 #include "include/encoding.h"
@@ -269,6 +270,90 @@ struct PendingImageSnapshot {
 };
 
 WRITE_CLASS_ENCODER(PendingImageSnapshot);
+
+enum SnapshotNamespaceType {
+  SNAPSHOT_NAMESPACE_TYPE_USER = 0,
+  SNAPSHOT_NAMESPACE_TYPE_GROUP = 1
+};
+
+struct UserSnapshotNamespace {
+  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_USER;
+
+  UserSnapshotNamespace() {}
+
+  void encode(bufferlist& bl) const {}
+  void decode(__u8 version, bufferlist::iterator& it) {}
+};
+
+struct GroupSnapshotNamespace {
+  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_GROUP;
+
+  GroupSnapshotNamespace() {}
+
+  GroupSnapshotNamespace(int64_t _group_pool,
+			 const string &_group_id,
+			 const string &_snapshot_id) :group_pool(_group_pool),
+						      group_id(_group_id),
+						      snapshot_id(_snapshot_id) {}
+
+  int64_t group_pool;
+  string group_id;
+  string snapshot_id;
+
+  void encode(bufferlist& bl) const {
+    ::encode(group_pool, bl);
+    ::encode(group_id, bl);
+    ::encode(snapshot_id, bl);
+  }
+
+  void decode(__u8 version, bufferlist::iterator& it) {
+    ::decode(group_pool, it);
+    ::decode(group_id, it);
+    ::decode(snapshot_id, it);
+  }
+};
+
+struct UnknownSnapshotNamespace {
+  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = static_cast<uint32_t>(-1);
+
+  UnknownSnapshotNamespace() {}
+
+  void encode(bufferlist& bl) const {}
+  void decode(__u8 version, bufferlist::iterator& it) {}
+};
+
+typedef boost::variant<UserSnapshotNamespace, GroupSnapshotNamespace, UnknownSnapshotNamespace> SnapshotNamespace;
+
+class EncodeSnapshotTypeVisitor : public boost::static_visitor<void> {
+public:
+  explicit EncodeSnapshotTypeVisitor(bufferlist &bl) : m_bl(bl) {
+  }
+
+  template <typename T>
+  inline void operator()(const T& t) const {
+    ::encode(static_cast<uint32_t>(T::SNAPSHOT_NAMESPACE_TYPE), m_bl);
+    t.encode(m_bl);
+  }
+
+private:
+  bufferlist &m_bl;
+};
+
+class DecodeSnapshotTypeVisitor : public boost::static_visitor<void> {
+public:
+  DecodeSnapshotTypeVisitor(__u8 version, bufferlist::iterator &iter)
+    : m_version(version), m_iter(iter) {
+  }
+
+  template <typename T>
+  inline void operator()(T& t) const {
+    t.decode(m_version, m_iter);
+  }
+private:
+  __u8 m_version;
+  bufferlist::iterator &m_iter;
+};
+
 
 } // namespace rbd
 } // namespace cls

@@ -7,6 +7,7 @@
 #include "include/buffer_fwd.h"
 #include "common/Formatter.h"
 #include "librbd/parent_types.h"
+#include "cls/rbd/cls_rbd_types.h"
 
 /// information about our parent image, if any
 struct cls_rbd_parent {
@@ -56,89 +57,6 @@ struct cls_rbd_parent {
 };
 WRITE_CLASS_ENCODER(cls_rbd_parent)
 
-enum SnapshotNamespaceType {
-  SNAPSHOT_NAMESPACE_TYPE_USER = 0,
-  SNAPSHOT_NAMESPACE_TYPE_GROUP = 1
-};
-
-struct UserSnapshotNamespace {
-  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_USER;
-
-  UserSnapshotNamespace() {}
-
-  void encode(bufferlist& bl) const {}
-  void decode(__u8 version, bufferlist::iterator& it) {}
-};
-
-struct GroupSnapshotNamespace {
-  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_GROUP;
-
-  GroupSnapshotNamespace() {}
-
-  GroupSnapshotNamespace(int64_t _group_pool,
-			 const string &_group_id,
-			 const string &_snapshot_id) :group_pool(_group_pool),
-						      group_id(_group_id),
-						      snapshot_id(_snapshot_id) {}
-
-  int64_t group_pool;
-  string group_id;
-  string snapshot_id;
-
-  void encode(bufferlist& bl) const {
-    ::encode(group_pool, bl);
-    ::encode(group_id, bl);
-    ::encode(snapshot_id, bl);
-  }
-
-  void decode(__u8 version, bufferlist::iterator& it) {
-    ::decode(group_pool, it);
-    ::decode(group_id, it);
-    ::decode(snapshot_id, it);
-  }
-};
-
-struct UnknownSnapshotNamespace {
-  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = static_cast<uint32_t>(-1);
-
-  UnknownSnapshotNamespace() {}
-
-  void encode(bufferlist& bl) const {}
-  void decode(__u8 version, bufferlist::iterator& it) {}
-};
-
-class EncodeSnapshotTypeVisitor : public boost::static_visitor<void> {
-public:
-  explicit EncodeSnapshotTypeVisitor(bufferlist &bl) : m_bl(bl) {
-  }
-
-  template <typename T>
-  inline void operator()(const T& t) const {
-    ::encode(static_cast<uint32_t>(T::SNAPSHOT_NAMESPACE_TYPE), m_bl);
-    t.encode(m_bl);
-  }
-
-private:
-  bufferlist &m_bl;
-};
-
-class DecodeSnapshotTypeVisitor : public boost::static_visitor<void> {
-public:
-  DecodeSnapshotTypeVisitor(__u8 version, bufferlist::iterator &iter)
-    : m_version(version), m_iter(iter) {
-  }
-
-  template <typename T>
-  inline void operator()(T& t) const {
-    t.decode(m_version, m_iter);
-  }
-private:
-  __u8 m_version;
-  bufferlist::iterator &m_iter;
-};
-
-typedef boost::variant<UserSnapshotNamespace, GroupSnapshotNamespace, UnknownSnapshotNamespace> SnapshotNamespace;;
-
 struct cls_rbd_snap {
   snapid_t id;
   string name;
@@ -147,8 +65,8 @@ struct cls_rbd_snap {
   uint8_t protection_status;
   cls_rbd_parent parent;
   uint64_t flags;
-  SnapshotNamespaceType snapshot_namespace_type;
-  SnapshotNamespace snapshot_namespace;
+  cls::rbd::SnapshotNamespaceType snapshot_namespace_type;
+  cls::rbd::SnapshotNamespace snapshot_namespace;
 
   /// true if we have a parent
   bool has_parent() const {
@@ -168,7 +86,7 @@ struct cls_rbd_snap {
     ::encode(parent, bl);
     ::encode(protection_status, bl);
     ::encode(flags, bl);
-    boost::apply_visitor(EncodeSnapshotTypeVisitor(bl), snapshot_namespace);
+    boost::apply_visitor(cls::rbd::EncodeSnapshotTypeVisitor(bl), snapshot_namespace);
     ENCODE_FINISH(bl);
   }
   void decode(bufferlist::iterator& p) {
@@ -189,21 +107,21 @@ struct cls_rbd_snap {
     if (struct_v >= 5) {
       uint32_t snap_type;
       ::decode(snap_type, p);
-      snapshot_namespace_type = static_cast<SnapshotNamespaceType>(snap_type);
+      snapshot_namespace_type = static_cast<cls::rbd::SnapshotNamespaceType>(snap_type);
       switch (snap_type) {
-	case SNAPSHOT_NAMESPACE_TYPE_USER:
-	  snapshot_namespace = UserSnapshotNamespace();
+	case cls::rbd::SNAPSHOT_NAMESPACE_TYPE_USER:
+	  snapshot_namespace = cls::rbd::UserSnapshotNamespace();
 	  break;
-	case SNAPSHOT_NAMESPACE_TYPE_GROUP:
-	  snapshot_namespace = GroupSnapshotNamespace();
+	case cls::rbd::SNAPSHOT_NAMESPACE_TYPE_GROUP:
+	  snapshot_namespace = cls::rbd::GroupSnapshotNamespace();
 	  break;
 	default:
-	  snapshot_namespace = UnknownSnapshotNamespace();
+	  snapshot_namespace = cls::rbd::UnknownSnapshotNamespace();
 	  break;
       }
-      boost::apply_visitor(DecodeSnapshotTypeVisitor(struct_v, p), snapshot_namespace);
+      boost::apply_visitor(cls::rbd::DecodeSnapshotTypeVisitor(struct_v, p), snapshot_namespace);
     } else {
-      snapshot_namespace = UserSnapshotNamespace();
+      snapshot_namespace = cls::rbd::UserSnapshotNamespace();
     }
     DECODE_FINISH(p);
   }
