@@ -4215,7 +4215,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
 	ldout(cct, 1) << "Failed to open image" << dendl;
       }
 
-      r = image->lock_acquire();
+      r = image->lock_acquire(RBD_LOCK_MODE_EXCLUSIVE);
       if (r < 0) {
 	ldout(cct, 1) << "Failed to acquire lock" << dendl;
       }

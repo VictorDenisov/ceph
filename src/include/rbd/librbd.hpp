@@ -274,8 +274,6 @@ public:
   int list_lockers(std::list<locker_t> *lockers,
 		   bool *exclusive, std::string *tag);
   int lock_exclusive(const std::string& cookie);
-  int lock_acquire();
-  int lock_release();
   int lock_shared(const std::string& cookie, const std::string& tag);
   int unlock(const std::string& cookie);
   int break_lock(const std::string& client, const std::string& cookie);

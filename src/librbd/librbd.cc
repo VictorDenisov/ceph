@@ -987,24 +987,6 @@ namespace librbd {
     return r;
   }
 
-  int Image::lock_acquire()
-  {
-    ImageCtx *ictx = (ImageCtx *)ctx;
-
-    int r = librbd::lock_acquire(ictx);
-
-    return r;
-  }
-
-  int Image::lock_release()
-  {
-    ImageCtx *ictx = (ImageCtx *)ctx;
-
-    int r = librbd::lock_release(ictx);
-
-    return r;
-  }
-
   int Image::lock_shared(const string& cookie, const std::string& tag)
   {
     ImageCtx *ictx = (ImageCtx *)ctx;

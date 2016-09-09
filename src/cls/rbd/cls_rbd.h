@@ -56,30 +56,30 @@ struct cls_rbd_parent {
 };
 WRITE_CLASS_ENCODER(cls_rbd_parent)
 
-enum SnapshotType {
-  SNAPSHOT_TYPE_SELF_STANDING = 0,
-  SNAPSHOT_TYPE_GROUP_MEMBER  = 1
+enum SnapshotNamespaceType {
+  SNAPSHOT_NAMESPACE_TYPE_USER = 0,
+  SNAPSHOT_NAMESPACE_TYPE_GROUP = 1
 };
 
-struct SelfStandingSnapshot {
-  static const SnapshotType TYPE = SNAPSHOT_TYPE_SELF_STANDING;
+struct UserSnapshotNamespace {
+  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_USER;
 
-  SelfStandingSnapshot() {}
+  UserSnapshotNamespace() {}
 
   void encode(bufferlist& bl) const {}
   void decode(__u8 version, bufferlist::iterator& it) {}
 };
 
-struct GroupMemberSnapshot {
-  static const SnapshotType TYPE = SNAPSHOT_TYPE_GROUP_MEMBER;
+struct GroupSnapshotNamespace {
+  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_GROUP;
 
-  GroupMemberSnapshot() {}
+  GroupSnapshotNamespace() {}
 
-  GroupMemberSnapshot(int64_t _group_pool,
-		      const string &_group_id,
-		      const string &_snapshot_id) :group_pool(_group_pool),
-						   group_id(_group_id),
-						   snapshot_id(_snapshot_id) {}
+  GroupSnapshotNamespace(int64_t _group_pool,
+			 const string &_group_id,
+			 const string &_snapshot_id) :group_pool(_group_pool),
+						      group_id(_group_id),
+						      snapshot_id(_snapshot_id) {}
 
   int64_t group_pool;
   string group_id;
@@ -98,6 +98,15 @@ struct GroupMemberSnapshot {
   }
 };
 
+struct UnknownSnapshotNamespace {
+  static const uint32_t SNAPSHOT_NAMESPACE_TYPE = static_cast<uint32_t>(-1);
+
+  UnknownSnapshotNamespace() {}
+
+  void encode(bufferlist& bl) const {}
+  void decode(__u8 version, bufferlist::iterator& it) {}
+};
+
 class EncodeSnapshotTypeVisitor : public boost::static_visitor<void> {
 public:
   explicit EncodeSnapshotTypeVisitor(bufferlist &bl) : m_bl(bl) {
@@ -105,7 +114,7 @@ public:
 
   template <typename T>
   inline void operator()(const T& t) const {
-    ::encode(static_cast<uint32_t>(T::TYPE), m_bl);
+    ::encode(static_cast<uint32_t>(T::SNAPSHOT_NAMESPACE_TYPE), m_bl);
     t.encode(m_bl);
   }
 
@@ -128,7 +137,7 @@ private:
   bufferlist::iterator &m_iter;
 };
 
-typedef boost::variant<SelfStandingSnapshot, GroupMemberSnapshot> SnapshotRef;
+typedef boost::variant<UserSnapshotNamespace, GroupSnapshotNamespace, UnknownSnapshotNamespace> SnapshotNamespace;;
 
 struct cls_rbd_snap {
   snapid_t id;
@@ -138,7 +147,8 @@ struct cls_rbd_snap {
   uint8_t protection_status;
   cls_rbd_parent parent;
   uint64_t flags;
-  SnapshotRef snapshot_ref;
+  SnapshotNamespaceType snapshot_namespace_type;
+  SnapshotNamespace snapshot_namespace;
 
   /// true if we have a parent
   bool has_parent() const {
@@ -158,7 +168,7 @@ struct cls_rbd_snap {
     ::encode(parent, bl);
     ::encode(protection_status, bl);
     ::encode(flags, bl);
-    boost::apply_visitor(EncodeSnapshotTypeVisitor(bl), snapshot_ref);
+    boost::apply_visitor(EncodeSnapshotTypeVisitor(bl), snapshot_namespace);
     ENCODE_FINISH(bl);
   }
   void decode(bufferlist::iterator& p) {
@@ -179,20 +189,21 @@ struct cls_rbd_snap {
     if (struct_v >= 5) {
       uint32_t snap_type;
       ::decode(snap_type, p);
+      snapshot_namespace_type = static_cast<SnapshotNamespaceType>(snap_type);
       switch (snap_type) {
-	case SNAPSHOT_TYPE_SELF_STANDING:
-	  snapshot_ref = SelfStandingSnapshot();
+	case SNAPSHOT_NAMESPACE_TYPE_USER:
+	  snapshot_namespace = UserSnapshotNamespace();
 	  break;
-	case SNAPSHOT_TYPE_GROUP_MEMBER:
-	  snapshot_ref = GroupMemberSnapshot();
+	case SNAPSHOT_NAMESPACE_TYPE_GROUP:
+	  snapshot_namespace = GroupSnapshotNamespace();
 	  break;
 	default:
-	  snapshot_ref = SelfStandingSnapshot();
+	  snapshot_namespace = UnknownSnapshotNamespace();
 	  break;
       }
-      boost::apply_visitor(DecodeSnapshotTypeVisitor(struct_v, p), snapshot_ref);
+      boost::apply_visitor(DecodeSnapshotTypeVisitor(struct_v, p), snapshot_namespace);
     } else {
-      snapshot_ref = SelfStandingSnapshot();
+      snapshot_namespace = UserSnapshotNamespace();
     }
     DECODE_FINISH(p);
   }
