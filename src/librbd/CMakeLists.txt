@@ -17,8 +17,8 @@ set(librbd_internal_srcs
   ImageCtx.cc
   ImageState.cc
   ImageWatcher.cc
-  internal.cc
   Group.cc
+  internal.cc
   Journal.cc
   LibrbdAdminSocketHook.cc
   LibrbdWriteback.cc
