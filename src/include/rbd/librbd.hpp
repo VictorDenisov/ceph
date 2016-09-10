@@ -256,8 +256,6 @@ public:
   int copy_with_progress3(IoCtx& dest_io_ctx, const char *destname,
 			  ImageOptions& opts, ProgressContext &prog_ctx);
 
-  std::string get_id();
-
   /* striping */
   uint64_t get_stripe_unit() const;
   uint64_t get_stripe_count() const;
@@ -295,7 +293,6 @@ public:
   int snap_rename(const char *srcname, const char *dstname);
   int snap_get_limit(uint64_t *limit);
   int snap_set_limit(uint64_t limit);
-  librados::snap_t snap_get_id(std::string in_snap_name);
 
   /* I/O */
   ssize_t read(uint64_t ofs, size_t len, ceph::bufferlist& bl);

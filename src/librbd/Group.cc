@@ -447,7 +447,7 @@ namespace librbd {
 
     librbd::RBD rbd;
     std::vector<librbd::IoCtx*> image_io_ctxs;
-    std::vector<librbd::Image*> images;
+    std::vector<librbd::ImageCtx*> images;
 
     for (auto i: images_statuses) {
       librbd::IoCtx *image_io_ctx = new librbd::IoCtx;
@@ -459,18 +459,20 @@ namespace librbd {
 	ldout(cct, 1) << "Failed to create pool" << dendl;
       }
 
-      r = rbd.open(*image_io_ctx, *image, i.name.c_str());
+      ImageCtx *ictx = new ImageCtx(i.name.c_str(), "", "", *image_io_ctx, false);
+
+      r = ictx->state->open();
       if (r < 0) {
 	ldout(cct, 1) << "Failed to open image" << dendl;
       }
 
-      r = image->lock_acquire(RBD_LOCK_MODE_EXCLUSIVE);
+      r = librbd::lock_acquire(ictx, RBD_LOCK_MODE_EXCLUSIVE);
       if (r < 0) {
 	ldout(cct, 1) << "Failed to acquire lock" << dendl;
       }
 
       image_io_ctxs.push_back(image_io_ctx);
-      images.push_back(image);
+      images.push_back(ictx);
     }
 
     int n = image_io_ctxs.size();
@@ -497,7 +499,7 @@ namespace librbd {
       std::cout << "Listing snapshots before" << std::endl;
       cls::rbd::PendingImageSnapshot pending_image_snapshot;
       pending_image_snapshot.pool = images_statuses[i].pool;
-      pending_image_snapshot.image_id = images[i]->get_id();
+      pending_image_snapshot.image_id = images[i]->id;
       pending_image_snapshot.snap_name = snap_name;
 
       r = cls_client::group_pending_image_snap_set(&group_ioctx, group_header_oid,
@@ -509,18 +511,18 @@ namespace librbd {
       if (r < 0)
 	goto release_locks;
 
-      images[i]->snap_list(snaps);
+      snap_list(images[i], snaps);
       for (int j = 0; j < snaps.size(); ++j) {
 	std::cout << "id: " << snaps[j].id << std::endl;
 	std::cout << "name: " << snaps[j].name << std::endl;
       }
 
-      r = images[i]->snap_create(snap_name);
+      r = images[i]->operations->snap_create(snap_name);
 
       cls::rbd::ImageSnapshotRef ref;
       ref.pool = images_statuses[i].pool;
-      ref.image_id = images[i]->get_id();
-      ref.snap_id = images[i]->snap_get_id(snap_name);
+      ref.image_id = images[i]->id;
+      ref.snap_id = images[i]->get_snap_id(snap_name);
       cls_client::group_snap_candidate_add(&group_ioctx, group_header_oid,
 					   &ref);
 
@@ -530,7 +532,7 @@ namespace librbd {
       std::cout << "Snap create result: " << r << std::endl;
       std::cin >> s;
 
-      images[i]->snap_list(snaps);
+      librbd::snap_list(images[i], snaps);
       std::cout << "Listing snapshots after" << std::endl;
       for (int j = 0; j < snaps.size(); ++j) {
 	std::cout << "id: " << snaps[j].id << std::endl;

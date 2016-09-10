@@ -924,11 +924,6 @@ namespace librbd {
     return r;
   }
 
-  std::string Image::get_id() {
-    ImageCtx *ictx = (ImageCtx *)ctx;
-    return ictx->id;
-  }
-
   int Image::flatten()
   {
     ImageCtx *ictx = (ImageCtx *)ctx;
@@ -1162,13 +1157,6 @@ namespace librbd {
     int r = ictx->operations->snap_set_limit(limit);
     tracepoint(librbd, snap_set_limit_exit, r);
     return r;
-  }
-
-  snap_t Image::snap_get_id(string in_snap_name)
-  {
-    ImageCtx *ictx = (ImageCtx *)ctx;
-    RWLock::RLocker snap_locker(ictx->snap_lock);
-    return ictx->get_snap_id(in_snap_name);
   }
 
   int Image::snap_set(const char *snap_name)
