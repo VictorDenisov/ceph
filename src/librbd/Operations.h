@@ -45,7 +45,9 @@ public:
                       Context *on_finish, uint64_t journal_op_tid);
 
   int snap_create(const char *snap_name, cls::rbd::SnapshotNamespace snapshot_namespace);
-  void snap_create(const char *snap_name, Context *on_finish);
+  void snap_create(const char *snap_name,
+		   cls::rbd::SnapshotNamespace snapshot_namespace,
+		   Context *on_finish);
   void execute_snap_create(const std::string &snap_name, Context *on_finish,
                            uint64_t journal_op_tid, bool skip_object_map);
 
