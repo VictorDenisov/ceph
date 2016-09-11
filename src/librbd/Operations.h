@@ -4,6 +4,7 @@
 #ifndef CEPH_LIBRBD_OPERATIONS_H
 #define CEPH_LIBRBD_OPERATIONS_H
 
+#include "cls/rbd/cls_rbd_types.h"
 #include "include/int_types.h"
 #include "librbd/operation/ObjectMapIterate.h"
 #include <atomic>
@@ -43,7 +44,7 @@ public:
   void execute_resize(uint64_t size, bool allow_shrink, ProgressContext &prog_ctx,
                       Context *on_finish, uint64_t journal_op_tid);
 
-  int snap_create(const char *snap_name);
+  int snap_create(const char *snap_name, cls::rbd::SnapshotNamespace snapshot_namespace);
   void snap_create(const char *snap_name, Context *on_finish);
   void execute_snap_create(const std::string &snap_name, Context *on_finish,
                            uint64_t journal_op_tid, bool skip_object_map);

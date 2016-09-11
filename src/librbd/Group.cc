@@ -517,7 +517,10 @@ namespace librbd {
 	std::cout << "name: " << snaps[j].name << std::endl;
       }
 
-      r = images[i]->operations->snap_create(snap_name);
+      r = images[i]->operations->snap_create(snap_name,
+		      			     cls::rbd::GroupSnapshotNamespace(group_ioctx.get_id(),
+									      group_id,
+									      "00001")); // replace it with real snapshot id
 
       cls::rbd::ImageSnapshotRef ref;
       ref.pool = images_statuses[i].pool;

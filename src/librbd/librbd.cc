@@ -15,6 +15,7 @@
 
 #include <errno.h>
 
+#include "cls/rbd/cls_rbd_types.h"
 #include "common/dout.h"
 #include "common/errno.h"
 #include "common/TracepointProvider.h"
@@ -1014,7 +1015,7 @@ namespace librbd {
   {
     ImageCtx *ictx = (ImageCtx *)ctx;
     tracepoint(librbd, snap_create_enter, ictx, ictx->name.c_str(), ictx->snap_name.c_str(), ictx->read_only, snap_name);
-    int r = ictx->operations->snap_create(snap_name);
+    int r = ictx->operations->snap_create(snap_name, cls::rbd::UserSnapshotNamespace());
     tracepoint(librbd, snap_create_exit, r);
     return r;
   }
@@ -2309,7 +2310,7 @@ extern "C" int rbd_snap_create(rbd_image_t image, const char *snap_name)
 {
   librbd::ImageCtx *ictx = (librbd::ImageCtx *)image;
   tracepoint(librbd, snap_create_enter, ictx, ictx->name.c_str(), ictx->snap_name.c_str(), ictx->read_only, snap_name);
-  int r = ictx->operations->snap_create(snap_name);
+  int r = ictx->operations->snap_create(snap_name, cls::rbd::UserSnapshotNamespace());
   tracepoint(librbd, snap_create_exit, r);
   return r;
 }

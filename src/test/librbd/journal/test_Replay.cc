@@ -3,6 +3,7 @@
 
 #include "test/librbd/test_fixture.h"
 #include "test/librbd/test_support.h"
+#include "cls/rbd/cls_rbd_types.h"
 #include "cls/journal/cls_journal_types.h"
 #include "cls/journal/cls_journal_client.h"
 #include "journal/Journaler.h"
@@ -320,7 +321,7 @@ TEST_F(TestJournalReplay, SnapCreate) {
   }
 
   // verify lock ordering constraints
-  ASSERT_EQ(0, ictx->operations->snap_create("snap2"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap2", cls::rbd::UserSnapshotNamespace()));
 }
 
 TEST_F(TestJournalReplay, SnapProtect) {
@@ -331,7 +332,7 @@ TEST_F(TestJournalReplay, SnapProtect) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
 
   // get current commit position
   int64_t initial_tag;
@@ -358,7 +359,7 @@ TEST_F(TestJournalReplay, SnapProtect) {
   ASSERT_TRUE(is_protected);
 
   // verify lock ordering constraints
-  ASSERT_EQ(0, ictx->operations->snap_create("snap2"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap2", cls::rbd::UserSnapshotNamespace()));
   ASSERT_EQ(0, ictx->operations->snap_protect("snap2"));
 }
 
@@ -370,7 +371,7 @@ TEST_F(TestJournalReplay, SnapUnprotect) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
   uint64_t snap_id;
   {
     RWLock::RLocker snap_locker(ictx->snap_lock);
@@ -404,7 +405,7 @@ TEST_F(TestJournalReplay, SnapUnprotect) {
   ASSERT_FALSE(is_protected);
 
   // verify lock ordering constraints
-  ASSERT_EQ(0, ictx->operations->snap_create("snap2"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap2", cls::rbd::UserSnapshotNamespace()));
   ASSERT_EQ(0, ictx->operations->snap_protect("snap2"));
   ASSERT_EQ(0, ictx->operations->snap_unprotect("snap2"));
 }
@@ -417,7 +418,7 @@ TEST_F(TestJournalReplay, SnapRename) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
   uint64_t snap_id;
   {
     RWLock::RLocker snap_locker(ictx->snap_lock);
@@ -465,7 +466,7 @@ TEST_F(TestJournalReplay, SnapRollback) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
 
   // get current commit position
   int64_t initial_tag;
@@ -500,7 +501,7 @@ TEST_F(TestJournalReplay, SnapRemove) {
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
   ASSERT_EQ(0, when_acquired_lock(ictx));
 
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
 
   // get current commit position
   int64_t initial_tag;
@@ -529,7 +530,7 @@ TEST_F(TestJournalReplay, SnapRemove) {
   }
 
   // verify lock ordering constraints
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
   ASSERT_EQ(0, ictx->operations->snap_remove("snap"));
 }
 
@@ -605,7 +606,7 @@ TEST_F(TestJournalReplay, Flatten) {
 
   librbd::ImageCtx *ictx;
   ASSERT_EQ(0, open_image(m_image_name, &ictx));
-  ASSERT_EQ(0, ictx->operations->snap_create("snap"));
+  ASSERT_EQ(0, ictx->operations->snap_create("snap", cls::rbd::UserSnapshotNamespace()));
   ASSERT_EQ(0, ictx->operations->snap_protect("snap"));
 
   std::string clone_name = get_temp_image_name();

@@ -1,6 +1,7 @@
 // -*- mode:C++; tab-width:8; c-basic-offset:2; indent-tabs-mode:t -*-
 // vim: ts=8 sw=2 smarttab
 
+#include "cls/rbd/cls_rbd_types.h"
 #include "librbd/Operations.h"
 #include "common/dout.h"
 #include "common/errno.h"
@@ -649,7 +650,8 @@ void Operations<I>::execute_resize(uint64_t size, bool allow_shrink, ProgressCon
 }
 
 template <typename I>
-int Operations<I>::snap_create(const char *snap_name) {
+int Operations<I>::snap_create(const char *snap_name,
+			       cls::rbd::SnapshotNamespace snapshot_namespace) {
   if (m_image_ctx.read_only) {
     return -EROFS;
   }

@@ -176,7 +176,7 @@ public:
 
   int create_snap(librbd::ImageCtx *image_ctx, const std::string &snap_name,
                   bool protect = false) {
-    int r = image_ctx->operations->snap_create(snap_name.c_str());
+    int r = image_ctx->operations->snap_create(snap_name.c_str(), cls::rbd::UserSnapshotNamespace());
     if (r < 0) {
       return r;
     }
