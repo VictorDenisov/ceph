@@ -365,5 +365,20 @@ void PendingImageSnapshot::decode(bufferlist::iterator &it) {
   DECODE_FINISH(it);
 }
 
+std::ostream& operator<<(std::ostream& os, const UserSnapshotNamespace& ns) {
+  os << "[user]";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const GroupSnapshotNamespace& ns) {
+  os << "[group]";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const UnknownSnapshotNamespace& ns) {
+  os << "[unknown]";
+  return os;
+}
+
 } // namespace rbd
 } // namespace cls

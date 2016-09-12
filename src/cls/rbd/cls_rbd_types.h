@@ -285,6 +285,8 @@ struct UserSnapshotNamespace {
   void decode(__u8 version, bufferlist::iterator& it) {}
 };
 
+std::ostream& operator<<(std::ostream& os, const UserSnapshotNamespace& ns);
+
 struct GroupSnapshotNamespace {
   static const uint32_t SNAPSHOT_NAMESPACE_TYPE = SNAPSHOT_NAMESPACE_TYPE_GROUP;
 
@@ -313,6 +315,8 @@ struct GroupSnapshotNamespace {
   }
 };
 
+std::ostream& operator<<(std::ostream& os, const GroupSnapshotNamespace& ns);
+
 struct UnknownSnapshotNamespace {
   static const uint32_t SNAPSHOT_NAMESPACE_TYPE = static_cast<uint32_t>(-1);
 
@@ -321,6 +325,8 @@ struct UnknownSnapshotNamespace {
   void encode(bufferlist& bl) const {}
   void decode(__u8 version, bufferlist::iterator& it) {}
 };
+
+std::ostream& operator<<(std::ostream& os, const UnknownSnapshotNamespace& ns);
 
 typedef boost::variant<UserSnapshotNamespace, GroupSnapshotNamespace, UnknownSnapshotNamespace> SnapshotNamespace;
 

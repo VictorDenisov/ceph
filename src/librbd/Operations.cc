@@ -651,7 +651,7 @@ void Operations<I>::execute_resize(uint64_t size, bool allow_shrink, ProgressCon
 
 template <typename I>
 int Operations<I>::snap_create(const char *snap_name,
-			       cls::rbd::SnapshotNamespace snapshot_namespace) {
+			       const cls::rbd::SnapshotNamespace &snapshot_namespace) {
   if (m_image_ctx.read_only) {
     return -EROFS;
   }
@@ -675,7 +675,7 @@ int Operations<I>::snap_create(const char *snap_name,
 
 template <typename I>
 void Operations<I>::snap_create(const char *snap_name,
-				cls::rbd::SnapshotNamespace snapshot_namespace,
+				const cls::rbd::SnapshotNamespace &snapshot_namespace,
 				Context *on_finish) {
   CephContext *cct = m_image_ctx.cct;
   ldout(cct, 5) << this << " " << __func__ << ": snap_name=" << snap_name

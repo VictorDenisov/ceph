@@ -26,7 +26,7 @@ struct MockOperations {
                                     Context *on_finish,
                                     uint64_t journal_op_tid));
   MOCK_METHOD3(snap_create, void(const std::string &snap_name,
-				 cls::rbd::SnapshotNamespace snapshot_namespace,
+				 const cls::rbd::SnapshotNamespace &snapshot_namespace,
                                  Context *on_finish));
   MOCK_METHOD4(execute_snap_create, void(const std::string &snap_name,
                                          Context *on_finish,
