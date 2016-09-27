@@ -159,6 +159,11 @@ typedef struct {
 } rbd_group_spec_t;
 
 typedef enum {
+  GROUP_SNAP_STATE_PENDING,
+  GROUP_SNAP_STATE_COMPLETE
+} rbd_group_snap_state_t;
+
+typedef enum {
   RBD_LOCK_MODE_EXCLUSIVE = 0,
   RBD_LOCK_MODE_SHARED = 1,
 } rbd_lock_mode_t;

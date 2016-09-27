@@ -3,8 +3,11 @@
 #include "common/errno.h"
 
 #include "librbd/AioCompletion.h"
+#include "librbd/ExclusiveLock.h"
 #include "librbd/Group.h"
+#include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
+#include "librbd/Operations.h"
 #include "librbd/Utils.h"
 
 #define dout_subsys ceph_subsys_rbd
@@ -379,4 +382,244 @@ int image_get_group(ImageCtx *ictx, group_spec_t *group_spec)
 
   return 0;
 }
+
+int group_snap_name_check_duplicate(librados::IoCtx& group_ioctx,
+				    const char *group_name,
+				    const char *snap_name)
+{
+  CephContext *cct = (CephContext *)group_ioctx.cct();
+
+  std::vector<group_snap_spec_t> snaps;
+  int r = group_snap_list(group_ioctx, group_name, snaps);
+  if (r < 0) {
+    lderr(cct) << "failed to list existing snapshots while checking name duplicates: "
+	       << cpp_strerror(r)
+	       << dendl;
+    return r;
+  }
+  for (auto i: snaps) {
+    if (i.name == string(snap_name)) {
+      lderr(cct) << "snapshot with this name already exists: "
+		 << cpp_strerror(r)
+		 << dendl;
+      return -EEXIST;
+    }
+  }
+  return 0;
+}
+
+int group_snap_create(librados::IoCtx& group_ioctx,
+		      const char *group_name, const char *snap_name)
+{
+  CephContext *cct = (CephContext *)group_ioctx.cct();
+  librados::Rados rados(group_ioctx);
+
+  int r = group_snap_name_check_duplicate(group_ioctx, group_name, snap_name);
+  if (r < 0) {
+    return r;
+  }
+
+  string group_id;
+  uint64_t snap_seq = 0;
+  cls::rbd::GroupSnapshot gs;
+  vector<cls::rbd::ImageSnapshotRef> image_snaps;
+  vector<string> ind_snap_names;
+
+  r = cls_client::dir_get_id(&group_ioctx, RBD_GROUP_DIRECTORY,
+			     group_name, &group_id);
+  if (r < 0) {
+    lderr(cct) << "error reading consistency group id object: "
+	       << cpp_strerror(r)
+	       << dendl;
+    return r;
+  }
+  string group_header_oid = util::group_header_name(group_id);
+
+  std::vector<group_image_status_t> images;
+  r = librbd::group_image_list(group_ioctx, group_name, images);
+  if (r < 0) {
+    return r;
+  }
+  int n = images.size();
+  std::vector<librbd::IoCtx*> io_ctxs;
+  std::vector<librbd::ImageCtx*> ictxs;
+  std::vector<C_SaferCond*> on_finishes;
+  for (auto i: images) {
+    librbd::IoCtx* image_io_ctx = new librbd::IoCtx;
+
+    r = rados.ioctx_create2(i.pool, *image_io_ctx);
+    if (r < 0) {
+      ldout(cct, 1) << "Failed to create io context for image" << dendl;
+    }
+
+    librbd::ImageCtx* image_ctx = new ImageCtx(i.name.c_str(), "", "",
+					       *image_io_ctx, false);
+
+    C_SaferCond* on_finish = new C_SaferCond;
+
+    image_ctx->state->open(on_finish);
+
+    ictxs.push_back(image_ctx);
+    on_finishes.push_back(on_finish);
+  }
+  int ret_code = 0;
+  for (int i = 0; i < n; ++i) {
+    r = on_finishes[i]->wait();
+    if (r < 0) {
+      delete ictxs[i];
+      ictxs[i] = nullptr;
+      ret_code = r;
+      delete on_finishes[i];
+    }
+  }
+  if (ret_code != 0) {
+    goto cleanup;
+  }
+  for (auto i: ictxs) {
+    i->exclusive_lock->block_requests(-EBUSY);
+  }
+  for (int i = 0; i < n; ++i) {
+    ImageCtx *ictx = ictxs[i];
+    RWLock::RLocker owner_lock(ictx->owner_lock);
+
+    ictx->exclusive_lock->request_lock(on_finishes[i]);
+  }
+
+  ret_code = 0;
+  for (auto i: on_finishes) {
+    r = i->wait();
+    if (r < 0) {
+      ret_code = r;
+    }
+  }
+  if (ret_code != 0) {
+    goto cleanup;
+  }
+
+  r = cls_client::group_snap_next_seq(&group_ioctx, group_header_oid, &snap_seq);
+  if (r < 0) {
+    ret_code = r;
+    goto cleanup;
+  }
+
+  gs.id = snap_seq;
+  gs.uuid = "";
+  gs.name = string(snap_name);
+  gs.state = cls::rbd::GROUP_SNAPSHOT_STATE_PENDING;
+
+  r = cls_client::group_snap_save(&group_ioctx, group_header_oid, gs);
+  if (r < 0) {
+    ret_code = r;
+    goto cleanup;
+  }
+
+  image_snaps = vector<cls::rbd::ImageSnapshotRef>(n, cls::rbd::ImageSnapshotRef());
+
+  for (int i = 0; i < n; ++i) {
+    ImageCtx *ictx = ictxs[i];
+    cls::rbd::SnapshotNamespace ne =
+			 cls::rbd::GroupSnapshotNamespace(group_ioctx.get_id(),
+							  group_id,
+							  snap_seq);
+
+    C_SaferCond* on_finish = new C_SaferCond;
+
+    std::stringstream ind_snap_name;
+    ind_snap_name << snap_name << "_" << group_id << "_" << snap_seq;
+    ind_snap_names.push_back(ind_snap_name.str());
+    ictx->operations->snap_create(ind_snap_name.str().c_str(), ne, on_finish);
+
+    on_finishes[i] = on_finish;
+  }
+
+  ret_code = 0;
+  for (int i = 0; i < n; ++i) {
+    r = on_finishes[i]->wait();
+    if (r < 0) {
+      ret_code = r;
+    } else {
+      ImageCtx *ictx = ictxs[i];
+      ldout(cct, 1) << "Get snap id with name " << ind_snap_names[i] << dendl;
+      ictx->snap_lock.get_read();
+      snap_t snap_id = ictx->get_snap_id(ind_snap_names[i]);
+      ictx->snap_lock.put_read();
+      image_snaps[i].snap_id = snapid_t(snap_id);
+      image_snaps[i].pool = ictx->data_ctx.get_id();
+      image_snaps[i].image_id = ictx->id;
+    }
+  }
+  if (ret_code != 0) {
+    goto cleanup;
+  }
+
+  gs.snaps = image_snaps;
+  gs.state = cls::rbd::GROUP_SNAPSHOT_STATE_COMPLETE;
+
+  r = cls_client::group_snap_save(&group_ioctx, group_header_oid, gs);
+  if (r < 0) {
+    ret_code = r;
+    goto cleanup;
+  }
+
+cleanup:
+
+  for (int i = 0; i < n; ++i) {
+    if (ictxs[i] != nullptr) {
+      ictxs[i]->state->close();
+    }
+    delete on_finishes[i];
+  }
+  return ret_code;
+}
+
+int group_snap_list(librados::IoCtx& group_ioctx, const char *group_name,
+		     std::vector<group_snap_spec_t>& snaps)
+{
+  std::vector<cls::rbd::GroupSnapshot> cls_snaps;
+  CephContext *cct = (CephContext *)group_ioctx.cct();
+  librados::Rados rados(group_ioctx);
+
+  string group_id;
+  cls::rbd::GroupSnapshot gs;
+  vector<string> ind_snap_names;
+
+  int r = cls_client::dir_get_id(&group_ioctx, RBD_GROUP_DIRECTORY,
+				 group_name, &group_id);
+  if (r < 0) {
+    lderr(cct) << "error reading consistency group id object: "
+	       << cpp_strerror(r)
+	       << dendl;
+    return r;
+  }
+  string group_header_oid = util::group_header_name(group_id);
+
+  const int max_read = 1024;
+
+  do {
+    cls::rbd::GroupSnapshot snap_last;
+    vector<cls::rbd::GroupSnapshot> snaps_page;
+
+    r = cls_client::group_snap_list(&group_ioctx, group_header_oid,
+				    snap_last, max_read, snaps_page);
+
+    if (r < 0) {
+      lderr(cct) << "error reading snap list from consistency group: "
+	<< cpp_strerror(-r) << dendl;
+      return r;
+    }
+    cls_snaps.insert(cls_snaps.end(), snaps_page.begin(), snaps_page.end());
+
+  } while (r == max_read);
+
+  for (auto i : cls_snaps) {
+    snaps.push_back(
+	group_snap_spec_t {
+	   i.name,
+	   static_cast<group_snap_state_t>(i.state)});
+
+  }
+  return 0;
+}
+
+
 } // namespace librbd

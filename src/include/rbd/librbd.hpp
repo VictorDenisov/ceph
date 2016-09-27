@@ -84,6 +84,13 @@ namespace librbd {
     int64_t pool;
   } group_spec_t;
 
+  typedef rbd_group_snap_state_t group_snap_state_t;
+
+  typedef struct {
+    std::string name;
+    group_snap_state_t state;
+  } group_snap_spec_t;
+
   typedef rbd_image_info_t image_info_t;
 
   class CEPH_RBD_API ProgressContext
@@ -172,6 +179,11 @@ public:
 			 IoCtx& image_io_ctx, const char *image_name);
   int group_image_list(IoCtx& io_ctx, const char *group_name,
 		       std::vector<group_image_status_t>& images);
+
+  int group_snap_create(IoCtx& io_ctx, const char *group_name,
+			const char *snap_name);
+  int group_snap_list(IoCtx& group_ioctx, const char *group_name,
+		      std::vector<group_snap_spec_t>& snaps);
 
 private:
   /* We don't allow assignment or copying */
