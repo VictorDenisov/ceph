@@ -448,5 +448,62 @@ std::ostream& operator<<(std::ostream& os, const UnknownSnapshotNamespace& ns) {
   return os;
 }
 
+void ImageSnapshotRef::encode(bufferlist& bl) const {
+  ENCODE_START(1, 1, bl);
+  ::encode(pool, bl);
+  ::encode(image_id, bl);
+  ::encode(snap_id, bl);
+  ENCODE_FINISH(bl);
+}
+
+void ImageSnapshotRef::decode(bufferlist::iterator& it) {
+  DECODE_START(1, it);
+  ::decode(pool, it);
+  ::decode(image_id, it);
+  ::decode(snap_id, it);
+  DECODE_FINISH(it);
+}
+
+void GroupSnapshot::encode(bufferlist& bl) const {
+  ENCODE_START(1, 1, bl);
+  ::encode(id, bl);
+  ::encode(uuid, bl);
+  ::encode(name, bl);
+  ::encode(state, bl);
+  ::encode(snaps, bl);
+  ENCODE_FINISH(bl);
+}
+
+void GroupSnapshot::decode(bufferlist::iterator& it) {
+  DECODE_START(1, it);
+  ::decode(id, it);
+  ::decode(uuid, it);
+  ::decode(name, it);
+  ::decode(state, it);
+  ::decode(snaps, it);
+  DECODE_FINISH(it);
+}
+
+void GroupSnapshot::dump(Formatter *f) const {
+  f->dump_int("id", id);
+  f->dump_string("uuid", uuid);
+  f->dump_string("name", name);
+  f->dump_int("state", state);
+}
+
+static void generate_test_instances(std::list<GroupSnapshot *> &o) {
+}
+
+std::string GroupSnapshot::snap_key() const {
+  ostringstream oss;
+  if (id == invalid_id) {
+    return "";
+  } else {
+    oss << "snapshot_"
+	<< std::setw(16) << std::setfill('0') << std::hex << id;
+    return oss.str();
+  }
+}
+
 } // namespace rbd
 } // namespace cls

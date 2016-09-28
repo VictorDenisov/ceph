@@ -146,6 +146,9 @@ cls_method_handle_t h_group_image_set;
 cls_method_handle_t h_image_add_group;
 cls_method_handle_t h_image_remove_group;
 cls_method_handle_t h_image_get_group;
+cls_method_handle_t h_group_snap_next_seq;
+cls_method_handle_t h_group_snap_save;
+cls_method_handle_t h_group_snap_list;
 
 #define RBD_MAX_KEYS_READ 64
 #define RBD_SNAP_KEY_PREFIX "snapshot_"
@@ -199,8 +202,7 @@ static void key_from_snap_id(snapid_t snap_id, string *out)
   *out = oss.str();
 }
 
-static snapid_t snap_id_from_key(const string &key)
-{
+static snapid_t snap_id_from_key(const string &key) {
   istringstream iss(key);
   uint64_t id;
   iss.ignore(strlen(RBD_SNAP_KEY_PREFIX)) >> std::hex >> id;
@@ -4620,7 +4622,8 @@ int group_image_list(cls_method_context_t hctx,
   std::vector<cls::rbd::GroupImageStatus> res;
   int keys_read;
   do {
-    keys_read = cls_cxx_map_get_vals(hctx, last_read,cls::rbd::RBD_GROUP_IMAGE_KEY_PREFIX,
+    keys_read = cls_cxx_map_get_vals(hctx, last_read,
+				     cls::rbd::RBD_GROUP_IMAGE_KEY_PREFIX,
 				     max_read, &vals);
     if (keys_read < 0)
       return keys_read;
@@ -4794,6 +4797,155 @@ int image_get_group(cls_method_context_t hctx,
   }
 
   ::encode(spec, *out);
+  return 0;
+}
+
+/**
+ * Retrieve next group snapshot id.
+ *
+ * Input:
+ * none
+ *
+ * Output:
+ * @param uint64_t
+ * @return 0 on success, negative error code on failure
+ */
+int group_snap_next_seq(cls_method_context_t hctx,
+			bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_next_seq");
+  bufferlist seqbl;
+  int r = cls_cxx_map_get_val(hctx, GROUP_SNAP_SEQ, &seqbl);
+  if (r < 0 && r != -ENOENT) {
+    return r;
+  }
+
+  bufferlist::iterator iter = seqbl.begin();
+  uint64_t snap_seq = 0;
+  try {
+    ::decode(snap_seq, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  ::encode(snap_seq, *out);
+
+  return 0;
+}
+
+/**
+ * Save or update snapshot record.
+ *
+ * Input:
+ * @param GroupSnapshot
+ *
+ * Output:
+ * @return 0 on success, negative error code on failure
+ */
+int group_snap_save(cls_method_context_t hctx,
+		    bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_save");
+  cls::rbd::GroupSnapshot gs;
+  try {
+    bufferlist::iterator iter = in->begin();
+    ::decode(gs, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  bufferlist seqbl;
+  int r = cls_cxx_map_get_val(hctx, GROUP_SNAP_SEQ, &seqbl);
+  if (r < 0 && r != -ENOENT) {
+    return r;
+  }
+
+  bufferlist::iterator iter = seqbl.begin();
+  uint64_t snap_seq = 0;
+  try {
+    ::decode(snap_seq, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  // client lost a race with another snapshot creation.
+  // snap_seq must be monotonically increasing.
+  if (snap_seq > gs.id) {
+    return -ESTALE;
+  }
+
+  std::string key = gs.snap_key();
+
+  bufferlist obl;
+  ::encode(gs, obl);
+  r = cls_cxx_map_set_val(hctx, key, &obl);
+  if (r < 0) {
+    return r;
+  }
+
+  return 0;
+}
+
+/**
+ * List consistency group's snapshots.
+ *
+ * Input:
+ * @param start_after which name to begin listing after
+ * 	  (use the empty string to start at the beginning)
+ * @param max_return the maximum number of snapshots to list
+ *
+ * Output:
+ * @return 0 on success, negative error code on failure
+ */
+int group_snap_list(cls_method_context_t hctx,
+		    bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_list");
+
+  cls::rbd::GroupSnapshot start_after;
+  uint64_t max_return;
+  try {
+    bufferlist::iterator iter = in->begin();
+    ::decode(start_after, iter);
+    ::decode(max_return, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  int max_read = RBD_MAX_KEYS_READ;
+  std::map<string, bufferlist> vals;
+  string last_read = start_after.snap_key();
+  std::vector<cls::rbd::GroupSnapshot> res;
+  int keys_read;
+
+  do {
+    keys_read = cls_cxx_map_get_vals(hctx, last_read,
+				     RBD_SNAP_KEY_PREFIX, // TODO  replace with prefix from start after
+				     max_read, &vals);
+
+    if (keys_read < 0)
+      return keys_read;
+
+    for (map<string, bufferlist>::iterator it = vals.begin();
+	 it != vals.end() && res.size() < max_return; ++it) {
+
+      bufferlist::iterator iter = it->second.begin();
+      cls::rbd::GroupSnapshot snap;
+      try {
+	::decode(snap, iter);
+      } catch (const buffer::error &err) {
+	CLS_ERR("error decoding snapshot: %s", it->first.c_str());
+	return -EIO;
+      }
+      CLS_LOG(20, "Discovered snapshot %s %" PRId64,
+	      snap.name.c_str(),
+	      snap.id);
+      res.push_back(snap);
+    }
+
+  } while ((keys_read == RBD_MAX_KEYS_READ) && (res.size() < max_return));
+  ::encode(res, *out);
+  
   return 0;
 }
 
@@ -5053,5 +5205,14 @@ void __cls_init()
   cls_register_cxx_method(h_class, "image_get_group",
 			  CLS_METHOD_RD,
 			  image_get_group, &h_image_get_group);
+  cls_register_cxx_method(h_class, "group_snap_next_seq",
+			  CLS_METHOD_RD,
+			  group_snap_next_seq, &h_group_snap_next_seq);
+  cls_register_cxx_method(h_class, "group_snap_save",
+			  CLS_METHOD_RD | CLS_METHOD_WR,
+			  group_snap_save, &h_group_snap_save);
+  cls_register_cxx_method(h_class, "group_snap_list",
+			  CLS_METHOD_RD,
+			  group_snap_list, &h_group_snap_list);
   return;
 }

@@ -1770,5 +1770,56 @@ namespace librbd {
       return 0;
     }
 
+    int group_snap_next_seq(librados::IoCtx *ioctx, const std::string &oid,
+			    uint64_t *sid) {
+      bufferlist in, out;
+
+      int r = ioctx->exec(oid, "rbd", "group_snap_next_seq", in, out);
+      if (r < 0) {
+	return r;
+      }
+
+      bufferlist::iterator iter = out.begin();
+      try {
+	::decode(*sid, iter);
+      } catch (const buffer::error &err) {
+	return -EBADMSG;
+      }
+      return 0;
+    }
+
+    int group_snap_save(librados::IoCtx *ioctx, const std::string &oid,
+			const cls::rbd::GroupSnapshot &snapshot) {
+
+      bufferlist in, out;
+
+      ::encode(snapshot, in);
+      int r = ioctx->exec(oid, "rbd", "group_snap_save", in, out);
+      return r;
+    }
+
+    int group_snap_list(librados::IoCtx *ioctx, const std::string &oid,
+			const cls::rbd::GroupSnapshot &start,
+			uint64_t max_return,
+			std::vector<cls::rbd::GroupSnapshot>& snapshots) {
+
+      bufferlist in, out;
+      ::encode(start, in);
+      ::encode(max_return, in);
+
+      int r = ioctx->exec(oid, "rbd", "group_snap_list", in, out);
+      if (r < 0)
+	return r;
+
+      bufferlist::iterator iter = out.begin();
+      try {
+	::decode(snapshots, iter);
+      } catch (const buffer::error &err) {
+	return -EBADMSG;
+      }
+
+      return 0;
+    }
+
   } // namespace cls_client
 } // namespace librbd

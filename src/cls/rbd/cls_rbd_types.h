@@ -310,6 +310,55 @@ struct SnapshotNamespaceOnDisk {
 };
 WRITE_CLASS_ENCODER(SnapshotNamespaceOnDisk);
 
+enum GroupSnapshotState {
+  GROUP_SNAPSHOT_STATE_PENDING = 0,
+  GROUP_SNAPSHOT_STATE_COMPLETE = 1,
+};
+
+inline void encode(const GroupSnapshotState &state, bufferlist& bl,
+		   uint64_t features=0)
+{
+  ::encode(static_cast<uint8_t>(state), bl);
+}
+
+inline void decode(GroupSnapshotState &state, bufferlist::iterator& it)
+{
+  uint8_t int_state;
+  ::decode(int_state, it);
+  state = static_cast<GroupSnapshotState>(int_state);
+}
+
+struct ImageSnapshotRef {
+  int64_t pool;
+  string image_id;
+  snapid_t snap_id;
+
+  void encode(bufferlist& bl) const;
+  void decode(bufferlist::iterator& it);
+
+  void dump(Formatter *f) const;
+};
+WRITE_CLASS_ENCODER(ImageSnapshotRef);
+
+struct GroupSnapshot {
+  static const uint64_t invalid_id = -1;
+  uint64_t id = invalid_id;
+  std::string uuid;
+  std::string name;
+  GroupSnapshotState state;
+
+  vector<ImageSnapshotRef> snaps;
+
+  void encode(bufferlist& bl) const;
+  void decode(bufferlist::iterator& it);
+  void dump(Formatter *f) const;
+
+  static void generate_test_instances(std::list<GroupSnapshot *> &o);
+
+  std::string snap_key() const;
+};
+WRITE_CLASS_ENCODER(GroupSnapshot);
+
 } // namespace rbd
 } // namespace cls
 

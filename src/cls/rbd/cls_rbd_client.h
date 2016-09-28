@@ -355,6 +355,14 @@ namespace librbd {
 			   const cls::rbd::GroupSpec &group_spec);
     int image_get_group(librados::IoCtx *ioctx, const std::string &oid,
 			cls::rbd::GroupSpec &s);
+    int group_snap_next_seq(librados::IoCtx *ioctx, const std::string &oid,
+			    uint64_t *sid);
+    int group_snap_save(librados::IoCtx *ioctx, const std::string &oid,
+			const cls::rbd::GroupSnapshot &snapshot);
+    int group_snap_list(librados::IoCtx *ioctx, const std::string &oid,
+			const cls::rbd::GroupSnapshot &start,
+			uint64_t max_return,
+			std::vector<cls::rbd::GroupSnapshot>& snapshots);
 
   } // namespace cls_client
 } // namespace librbd
