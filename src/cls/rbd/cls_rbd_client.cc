@@ -1798,6 +1798,35 @@ namespace librbd {
       return r;
     }
 
+    int group_snap_get(librados::IoCtx *ioctx, const std::string &oid,
+		       const std::string &name,
+		       cls::rbd::GroupSnapshot *snapshot) {
+      bufferlist in, out;
+      ::encode(name, in);
+
+      int r = ioctx->exec(oid, "rbd", "group_snap_get", in, out);
+      if (r < 0) {
+	return r;
+      }
+
+      bufferlist::iterator iter = out.begin();
+      try {
+	::decode(*snapshot, iter);
+      } catch (const buffer::error &err) {
+	return -EBADMSG;
+      }
+
+      return 0;
+    }
+
+    int group_snap_remove(librados::IoCtx *ioctx, const std::string &oid,
+			  uint64_t snap_id) {
+      bufferlist in, out;
+      ::encode(snap_id, in);
+
+      return ioctx->exec(oid, "rbd", "group_snap_remove", in, out);
+    }
+
     int group_snap_list(librados::IoCtx *ioctx, const std::string &oid,
 			const cls::rbd::GroupSnapshot &start,
 			uint64_t max_return,
@@ -1808,8 +1837,9 @@ namespace librbd {
       ::encode(max_return, in);
 
       int r = ioctx->exec(oid, "rbd", "group_snap_list", in, out);
-      if (r < 0)
+      if (r < 0) {
 	return r;
+      }
 
       bufferlist::iterator iter = out.begin();
       try {

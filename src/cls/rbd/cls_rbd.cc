@@ -148,6 +148,7 @@ cls_method_handle_t h_image_remove_group;
 cls_method_handle_t h_image_get_group;
 cls_method_handle_t h_group_snap_next_seq;
 cls_method_handle_t h_group_snap_save;
+cls_method_handle_t h_group_snap_get;
 cls_method_handle_t h_group_snap_list;
 
 #define RBD_MAX_KEYS_READ 64
@@ -4887,6 +4888,33 @@ int group_snap_save(cls_method_context_t hctx,
 }
 
 /**
+ * Retrieve snapshot record.
+ *
+ * Input:
+ * @param name Snapshot name
+ *
+ * Output:
+ * @param GroupSnapshot
+ * @return 0 on success, negative error code on failure
+ */
+int group_snap_get(cls_method_context_t hctx,
+		   bufferlist *in, bufferlist *out)
+{
+  CLS_LOG(20, "group_snap_get");
+  std::string name;
+  try {
+    bufferlist::iterator iter = in->begin();
+    ::decode(name, iter);
+  } catch (const buffer::error &err) {
+    return -EINVAL;
+  }
+
+  cls::rbd::GroupSnapshot gs;
+
+  return 0;
+}
+
+/**
  * List consistency group's snapshots.
  *
  * Input:
@@ -5211,6 +5239,9 @@ void __cls_init()
   cls_register_cxx_method(h_class, "group_snap_save",
 			  CLS_METHOD_RD | CLS_METHOD_WR,
 			  group_snap_save, &h_group_snap_save);
+  cls_register_cxx_method(h_class, "group_snap_get",
+			  CLS_METHOD_RD,
+			  group_snap_get, &h_group_snap_get);
   cls_register_cxx_method(h_class, "group_snap_list",
 			  CLS_METHOD_RD,
 			  group_snap_list, &h_group_snap_list);

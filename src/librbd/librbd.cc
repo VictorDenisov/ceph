@@ -544,6 +544,16 @@ namespace librbd {
     return r;
   }
 
+  int RBD::group_snap_remove(IoCtx& group_ioctx, const char *group_name,
+			     const char *snap_name) {
+    TracepointProvider::initialize<tracepoint_traits>(get_cct(group_ioctx));
+    tracepoint(librbd, group_snap_remove_enter, group_ioctx.get_pool_name().c_str(),
+	       group_ioctx.get_id(), group_name);
+    int r = librbd::group_snap_remove(group_ioctx, group_name, snap_name);
+    tracepoint(librbd, group_snap_remove_exit, r);
+    return r;
+  }
+
   int RBD::group_snap_list(IoCtx& group_ioctx, const char *group_name,
 			   std::vector<group_snap_spec_t>& snaps)
   {

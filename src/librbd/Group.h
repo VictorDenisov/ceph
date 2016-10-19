@@ -18,6 +18,8 @@ int group_image_list(librados::IoCtx& group_ioctx, const char *group_name,
 int image_get_group(ImageCtx *ictx, group_spec_t *group_spec);
 int group_snap_create(librados::IoCtx& group_ioctx,
 		      const char *group_name, const char *snap_name);
+int group_snap_remove(librados::IoCtx& group_ioctx,
+		      const char *group_name, const char *snap_name);
 int group_snap_list(librados::IoCtx& group_ioctx, const char *group_name,
 		    std::vector<group_snap_spec_t>& snaps);
 }

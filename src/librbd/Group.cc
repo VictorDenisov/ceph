@@ -562,7 +562,6 @@ int group_snap_create(librados::IoCtx& group_ioctx,
   }
 
 cleanup:
-
   for (int i = 0; i < n; ++i) {
     if (ictxs[i] != nullptr) {
       ictxs[i]->state->close();
@@ -572,10 +571,9 @@ cleanup:
   return ret_code;
 }
 
-int group_snap_list(librados::IoCtx& group_ioctx, const char *group_name,
-		     std::vector<group_snap_spec_t>& snaps)
+int group_snap_list_cls(librados::IoCtx& group_ioctx, const char *group_name,
+		        std::vector<cls::rbd::GroupSnapshot>& cls_snaps)
 {
-  std::vector<cls::rbd::GroupSnapshot> cls_snaps;
   CephContext *cct = (CephContext *)group_ioctx.cct();
   librados::Rados rados(group_ioctx);
 
@@ -610,6 +608,143 @@ int group_snap_list(librados::IoCtx& group_ioctx, const char *group_name,
     cls_snaps.insert(cls_snaps.end(), snaps_page.begin(), snaps_page.end());
 
   } while (r == max_read);
+
+  return 0;
+}
+
+int group_snap_remove(librados::IoCtx& group_ioctx, const char *group_name,
+		      const char *snap_name)
+{
+  CephContext *cct = (CephContext *)group_ioctx.cct();
+  librados::Rados rados(group_ioctx);
+
+  std::vector<cls::rbd::GroupSnapshot> snaps;
+  std::vector<C_SaferCond*> on_finishes;
+  int ret_code = 0;
+
+  string group_id;
+  int r = cls_client::dir_get_id(&group_ioctx, RBD_GROUP_DIRECTORY,
+				 group_name, &group_id);
+  if (r < 0) {
+    lderr(cct) << "error reading consistency group id object: "
+	       << cpp_strerror(r)
+	       << dendl;
+    return r;
+  }
+  string group_header_oid = util::group_header_name(group_id);
+
+  r = group_snap_list_cls(group_ioctx, group_name, snaps);
+  if (r < 0) {
+    return r;
+  }
+  cls::rbd::GroupSnapshot *gs = nullptr;
+  int n = snaps.size();
+  for (int i = 0; i < n; ++i) {
+    if (snaps[i].name == string(snap_name)) {
+      gs = &snaps[i];
+    }
+  }
+  if (gs == nullptr) {
+    return -ENOENT;
+  }
+
+  std::vector<librbd::IoCtx*> io_ctxs;
+  std::vector<librbd::ImageCtx*> ictxs;
+  if (gs->state == cls::rbd::GROUP_SNAPSHOT_STATE_COMPLETE) {
+    n = gs->snaps.size();
+
+    for (int i = 0; i < n; ++i) {
+      librbd::IoCtx* image_io_ctx = new librbd::IoCtx;
+      r = rados.ioctx_create2(gs->snaps[i].pool, *image_io_ctx);
+      if (r < 0) {
+	ldout(cct, 1) << "Failed to create io context for image" << dendl;
+      }
+
+      std::string image_name;
+      r = cls_client::dir_get_name(image_io_ctx, RBD_DIRECTORY,
+			       gs->snaps[i].image_id, &image_name);
+      if (r < 0) {
+	goto cleanup;
+      }
+
+      librbd::ImageCtx* image_ctx = new ImageCtx(image_name, "", "",
+						 *image_io_ctx, false);
+
+      C_SaferCond* on_finish = new C_SaferCond;
+
+      image_ctx->state->open(on_finish);
+
+      ictxs.push_back(image_ctx);
+      on_finishes.push_back(on_finish);
+    }
+
+    int ret_code = 0;
+    for (int i = 0; i < n; ++i) {
+      r = on_finishes[i]->wait();
+      if (r < 0) {
+	delete ictxs[i];
+	ictxs[i] = nullptr;
+	ret_code = r;
+	delete on_finishes[i];
+      }
+      if (ictxs[i]->id != gs->snaps[i].image_id) {
+	ldout(cct, 1) << "An image was renamed during snapshot removal. Try again later." << dendl;
+	ret_code = -EAGAIN;
+      }
+    }
+    if (ret_code != 0) {
+      goto cleanup;
+    }
+
+    for (int i = 0; i < n; ++i) {
+      ImageCtx *ictx = ictxs[i];
+      std::string snap_name;
+      RWLock::RLocker l(ictx->snap_lock);
+      r = ictx->get_snap_name(gs->snaps[i].snap_id, &snap_name);
+      if (r < 0) {
+	goto cleanup;
+      }
+      ictx->operations->snap_remove(snap_name.c_str(), on_finishes[i]);
+    }
+
+    for (int i = 0; i < n; ++i) {
+      r = on_finishes[i]->wait();
+      if (r < 0 && r != -ENOENT) { // if previous attempts to remove this snapshot failed then the image's snapshot may not exist
+	ret_code = r;
+	delete on_finishes[i];
+      }
+    }
+
+    if (ret_code != 0) {
+      goto cleanup;
+    }
+
+    r = cls_client::group_snap_remove(&group_ioctx, group_header_oid, gs->id);
+    if (r < 0) {
+      ret_code = r;
+      goto cleanup;
+    }
+  }
+
+cleanup:
+  for (int i = 0; i < n; ++i) {
+    if (ictxs[i] != nullptr) {
+      ictxs[i]->state->close();
+    }
+    delete on_finishes[i];
+  }
+  return ret_code;
+}
+
+int group_snap_list(librados::IoCtx& group_ioctx, const char *group_name,
+		     std::vector<group_snap_spec_t>& snaps)
+{
+  std::vector<cls::rbd::GroupSnapshot> cls_snaps;
+
+  int r = group_snap_list_cls(group_ioctx, group_name, cls_snaps);
+  if (r < 0) {
+    return r;
+  }
 
   for (auto i : cls_snaps) {
     snaps.push_back(

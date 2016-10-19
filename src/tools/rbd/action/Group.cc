@@ -335,6 +335,50 @@ int execute_group_snap_create(const po::variables_map &vm) {
   return 0;
 }
 
+int execute_group_snap_remove(const po::variables_map &vm) {
+  size_t arg_index = 0;
+
+  std::string group_name;
+  std::string pool_name;
+  std::string snap_name;
+
+  int r = utils::get_pool_group_names(vm, at::ARGUMENT_MODIFIER_NONE,
+                                      &arg_index, &pool_name, &group_name);
+  if (r < 0) {
+    return r;
+  }
+
+  if (vm.count(at::SNAPSHOT_NAME)) {
+    snap_name = vm[at::SNAPSHOT_NAME].as<std::string>();
+  }
+
+  if (snap_name.empty()) {
+    snap_name = utils::get_positional_argument(vm, arg_index++);
+  }
+
+  if (snap_name.empty()) {
+    std::cerr << "rbd: "
+	      << "snapshot name was not specified" << std::endl;
+    return -EINVAL;
+  }
+
+  librados::IoCtx io_ctx;
+  librados::Rados rados;
+
+  r = utils::init(pool_name, &rados, &io_ctx);
+  if (r < 0) {
+    return r;
+  }
+
+  librbd::RBD rbd;
+  r = rbd.group_snap_remove(io_ctx, group_name.c_str(), snap_name.c_str());
+  if (r < 0) {
+    return r;
+  }
+
+  return 0;
+}
+
 int execute_group_snap_list(const po::variables_map &vm) {
   size_t arg_index = 0;
   std::string group_name;
@@ -477,6 +521,16 @@ void get_group_snap_create_arguments(po::options_description *positional,
   at::add_snap_option(options, at::ARGUMENT_MODIFIER_NONE);
 }
 
+void get_group_snap_remove_arguments(po::options_description *positional,
+				  po::options_description *options) {
+  at::add_group_spec_options(positional, options, at::ARGUMENT_MODIFIER_NONE);
+
+  positional->add_options()
+    (at::SNAPSHOT_NAME.c_str(), "snapshot name\n(example: <snapshot-name>)");
+
+  at::add_snap_option(options, at::ARGUMENT_MODIFIER_NONE);
+}
+
 void get_group_snap_list_arguments(po::options_description *positional,
                              po::options_description *options) {
   at::add_format_options(options);
@@ -504,6 +558,9 @@ Shell::Action action_list_images(
 Shell::Action action_group_snap_create(
   {"group", "snap", "create"}, {}, "Make a snapshot of a group",
   "", &get_group_snap_create_arguments, &execute_group_snap_create);
+Shell::Action action_group_snap_remove(
+  {"group", "snap", "remove"}, {}, "Remove a snapshot from a group",
+  "", &get_group_snap_remove_arguments, &execute_group_snap_remove);
 Shell::Action action_group_snap_list(
   {"group", "snap", "list"}, {}, "List snapshots of a consistency group.",
   "", &get_group_snap_list_arguments, &execute_group_snap_list);
