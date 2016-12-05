@@ -235,6 +235,10 @@ public:
   int group_snap_rename(IoCtx& group_ioctx, const char *group_name,
 			const char *old_snap_name, const char *new_snap_name);
 
+  int group_from_snap(IoCtx& group_ioctx, const char *group_name,
+		      const char *snap_name,
+		      IoCtx& new_group_ioctx, const char *new_group_name);
+
 private:
   /* We don't allow assignment or copying */
   RBD(const RBD& rhs);

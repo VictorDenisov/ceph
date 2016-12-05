@@ -582,6 +582,17 @@ namespace librbd {
     return r;
   }
 
+  int RBD::group_from_snap(IoCtx& group_ioctx, const char *group_name,
+			   const char *snap_name,
+			   IoCtx& new_group_ioctx, const char *new_group_name) {
+    TracepointProvider::initialize<tracepoint_traits>(get_cct(group_ioctx));
+    tracepoint(librbd, group_from_snap_enter, group_ioctx.get_pool_name().c_str(),
+	       group_ioctx.get_id(), group_name);
+    int r = librbd::group_from_snap(group_ioctx, group_name, snap_name,
+				    new_group_ioctx, new_group_name);
+    tracepoint(librbd, group_from_snap_exit, r);
+    return r;
+  }
 
   RBD::AioCompletion::AioCompletion(void *cb_arg, callback_t complete_cb)
   {

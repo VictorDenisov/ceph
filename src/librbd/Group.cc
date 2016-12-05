@@ -8,6 +8,7 @@
 #include "librbd/Group.h"
 #include "librbd/ImageCtx.h"
 #include "librbd/ImageState.h"
+#include "librbd/internal.h"
 #include "librbd/Operations.h"
 #include "librbd/Utils.h"
 
@@ -83,6 +84,19 @@ static int group_snap_list(librados::IoCtx& group_ioctx, const char *group_name,
   }
 
   return 0;
+}
+
+static std::string calc_cloned_image_name(uint64_t pool_id,
+					  std::string group_id,
+					  std::string snap_id,
+					  std::string image_name)
+{
+  std::stringstream cloned_image_name_stream;
+  cloned_image_name_stream << std::setw(16) << std::setfill('0') << std::hex <<
+			  pool_id <<
+			  "_" << group_id <<
+			  "_" << snap_id << "_" << image_name;
+  return cloned_image_name_stream.str();
 }
 
 static std::string calc_ind_image_snap_name(uint64_t pool_id,
@@ -909,5 +923,139 @@ int group_snap_rename(librados::IoCtx& group_ioctx, const char *group_name,
     return r;
   }
   return 0;
+}
+
+int group_from_snap(librados::IoCtx& group_ioctx, const char *group_name,
+		    const char *snap_name,
+		    librados::IoCtx& new_group_ioctx, const char *new_group_name)
+{
+  string group_id;
+  string group_header_oid;
+  cls::rbd::GroupSnapshot group_snap;
+  std::vector<C_SaferCond*> on_finishes;
+  std::vector<librbd::ImageCtx*> ictxs;
+  std::vector<librbd::IoCtx*> io_ctxs;
+
+  CephContext *cct = (CephContext *)group_ioctx.cct();
+  librados::Rados rados(group_ioctx);
+
+  cls::rbd::SnapshotNamespace ne;
+
+  int ret_code;
+
+  int r = find_group_snap(group_ioctx, group_name, snap_name,
+			  group_id, group_header_oid, group_snap);
+  if (r < 0) {
+    lderr(cct) << "Failed to find group snapshot" << dendl;
+    return r;
+  }
+
+  int image_snap_count = group_snap.snaps.size();
+
+  ne = cls::rbd::GroupSnapshotNamespace(group_ioctx.get_id(),
+					group_id,
+					group_snap.id);
+
+  for (int i = 0; i < image_snap_count; ++i) {
+    librbd::IoCtx* snap_io_ctx = new librbd::IoCtx;
+    r = rados.ioctx_create2(group_snap.snaps[i].pool, *snap_io_ctx);
+    if (r < 0) {
+      ldout(cct, 1) << "Failed to create io context for snapshot" << dendl;
+      return r;
+    }
+
+    io_ctxs.push_back(snap_io_ctx);
+
+    librbd::ImageCtx* image_ctx = new ImageCtx("", group_snap.snaps[i].image_id,
+					       "", *snap_io_ctx, false);
+    C_SaferCond* on_finish = new C_SaferCond;
+
+    image_ctx->state->open(on_finish);
+
+    ictxs.push_back(image_ctx);
+    on_finishes.push_back(on_finish);
+  }
+
+  ret_code = 0;
+  for (int i = 0; i < image_snap_count; ++i) {
+    r = on_finishes[i]->wait();
+    delete on_finishes[i];
+    if (r < 0) {
+      delete ictxs[i];
+      ictxs[i] = nullptr;
+      ret_code = r;
+    }
+  }
+  if (ret_code != 0) {
+    lderr(cct) << "Failed to open one of the images" << dendl;
+    goto finish;
+  }
+
+  r = group_create(group_ioctx, new_group_name);
+  if (r < 0) {
+    return r;
+  }
+
+  for (int i = 0; i < image_snap_count; ++i) {
+    ImageCtx *ictx = ictxs[i];
+    librbd::IoCtx* snap_io_ctx = io_ctxs[i];
+
+    ictx->snap_lock.get_read();
+    snap_t image_snap_id = ictx->get_snap_id_from_namespace(ne);
+
+    string image_snap_name;
+    r = ictx->get_snap_name(image_snap_id, &image_snap_name);
+
+    bool snap_protected;
+    r = ictx->is_snap_protected(ictx->snap_id, &snap_protected);
+    ictx->snap_lock.put_read();
+
+    ldout(cct, 20) << "Taking owner lock" << dendl;
+    if (!snap_protected) {
+
+      ldout(cct, 20) << "Protecting snapshot with name: " << ictx->snap_id << dendl;
+      r = ictx->operations->snap_protect(image_snap_name.c_str());
+      if (r < 0) {
+	lderr(cct) << "Failed to protect snapshot: " << r << dendl;
+	return r;
+      }
+      int r = ictx->state->refresh_if_required();
+      if (r < 0) {
+	lderr(cct) << "Refresh if required failed with value " << r << dendl;
+	return r;
+      }
+    }
+
+    string new_image_name = calc_cloned_image_name(group_ioctx.get_id(),
+						   group_id,
+						   group_snap.id,
+						   ictx->name);
+    new_image_name += "_" + generate_uuid(*snap_io_ctx);
+    ImageOptions opts;
+    opts.set(RBD_IMAGE_OPTION_FEATURES, ictx->features);
+    opts.set(RBD_IMAGE_OPTION_ORDER, ictx->order);
+    opts.set(RBD_IMAGE_OPTION_STRIPE_UNIT, ictx->stripe_unit);
+    opts.set(RBD_IMAGE_OPTION_STRIPE_COUNT, ictx->stripe_count);
+
+    ldout(cct, 20) << "Cloning to the image with name: " << new_image_name << dendl;
+    r = librbd::clone(ictx, *snap_io_ctx, new_image_name.c_str(), opts, "", "");
+
+    if (r < 0) {
+      lderr(cct) << "Failed to clone image" << dendl;
+      return r;
+    }
+    ldout(cct, 20) << "Releasing owner lock" << dendl;
+
+    r = group_image_add(group_ioctx, new_group_name,
+			*snap_io_ctx, new_image_name.c_str());
+    if (r < 0) {
+      return r;
+    }
+  }
+
+finish:
+
+  return 0;
+
 }
 } // namespace librbd
