@@ -216,7 +216,7 @@ int DiffIterate::execute() {
     RWLock::RLocker snap_locker(m_image_ctx.snap_lock);
     head_ctx.dup(m_image_ctx.data_ctx);
     if (m_from_snap_name) {
-      from_snap_id = m_image_ctx.get_snap_id(m_from_snap_name);
+      from_snap_id = m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), m_from_snap_name); //TODO
       from_size = m_image_ctx.get_image_size(from_snap_id);
     }
     end_snap_id = m_image_ctx.snap_id;

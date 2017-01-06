@@ -65,7 +65,7 @@ public:
 
   void expect_get_snap_id(librbd::MockTestImageCtx &mock_remote_image_ctx,
                           const std::string &snap_name, uint64_t snap_id) {
-    EXPECT_CALL(mock_remote_image_ctx, get_snap_id(StrEq(snap_name)))
+    EXPECT_CALL(mock_remote_image_ctx, get_snap_id(static_cast<cls::rbd::SnapshotNamespace>(cls::rbd::UserSnapshotNamespace()), StrEq(snap_name)))
       .WillOnce(Return(snap_id));
   }
 

@@ -67,7 +67,7 @@ namespace librbd {
     std::vector<librados::snap_t> snaps; // this mirrors snapc.snaps, but is in
                                         // a format librados can understand
     std::map<librados::snap_t, SnapInfo> snap_info;
-    std::map<std::string, librados::snap_t> snap_ids;
+    std::map<std::pair<cls::rbd::SnapshotNamespace, std::string>, librados::snap_t> snap_ids;
     uint64_t snap_id;
     bool snap_exists; // false if our snap_id was deleted
     // whether the image was opened read-only. cannot be changed after opening
@@ -226,7 +226,8 @@ namespace librbd {
     int get_read_flags(librados::snap_t snap_id);
     int snap_set(std::string in_snap_name);
     void snap_unset();
-    librados::snap_t get_snap_id(std::string in_snap_name) const;
+    librados::snap_t get_snap_id(cls::rbd::SnapshotNamespace in_snap_namespace,
+				 std::string in_snap_name) const;
     const SnapInfo* get_snap_info(librados::snap_t in_snap_id) const;
     int get_snap_name(librados::snap_t in_snap_id,
 		      std::string *out_snap_name) const;
@@ -251,7 +252,8 @@ namespace librbd {
 		  librados::snap_t id,
 		  uint64_t in_size, parent_info parent,
                   uint8_t protection_status, uint64_t flags);
-    void rm_snap(std::string in_snap_name, librados::snap_t id);
+    void rm_snap(cls::rbd::SnapshotNamespace in_snap_namespace,
+		 std::string in_snap_name, librados::snap_t id);
     uint64_t get_image_size(librados::snap_t in_snap_id) const;
     uint64_t get_object_count(librados::snap_t in_snap_id) const;
     bool test_features(uint64_t test_features) const;

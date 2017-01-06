@@ -100,7 +100,7 @@ public:
 
   static void inject_snap(librbd::MockTestImageCtx &mock_image_ctx,
                    uint64_t snap_id, const std::string &snap_name) {
-    mock_image_ctx.snap_ids[snap_name] = snap_id;
+    mock_image_ctx.snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), snap_name)] = snap_id;
   }
 
   MockSnapshotCreateRequest *create_request(librbd::MockTestImageCtx &mock_local_image_ctx,

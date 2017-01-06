@@ -162,7 +162,7 @@ public:
 
   static void inject_snap(librbd::MockTestImageCtx &mock_image_ctx,
                           uint64_t snap_id, const std::string &snap_name) {
-    mock_image_ctx.snap_ids[snap_name] = snap_id;
+    mock_image_ctx.snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), snap_name)] = snap_id;
   }
 
   MockSnapshotCopyRequest *create_request(librbd::MockTestImageCtx &mock_remote_image_ctx,
@@ -271,8 +271,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapCreate) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1"));
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap2"));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t remote_snap_id2 = m_remote_image_ctx->snap_ids["snap2"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t remote_snap_id2 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap2")];
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
   librbd::MockTestImageCtx mock_local_image_ctx(*m_local_image_ctx);
@@ -345,7 +345,7 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapRemoveAndCreate) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1"));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1"));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
   librbd::MockTestImageCtx mock_local_image_ctx(*m_local_image_ctx);
@@ -354,7 +354,7 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapRemoveAndCreate) {
 
   InSequence seq;
   expect_snap_is_unprotected(mock_local_image_ctx,
-                             m_local_image_ctx->snap_ids["snap1"], true, 0);
+                             m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")], true, 0);
   expect_snap_remove(mock_local_image_ctx, "snap1", 0);
   expect_snap_create(mock_local_image_ctx, mock_snapshot_create_request, "snap1", 12, 0);
   expect_snap_is_protected(mock_remote_image_ctx, remote_snap_id1, false, 0);
@@ -380,7 +380,7 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapRemoveError) {
 
   InSequence seq;
   expect_snap_is_unprotected(mock_local_image_ctx,
-                             m_local_image_ctx->snap_ids["snap1"], true, 0);
+                             m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")], true, 0);
   expect_snap_remove(mock_local_image_ctx, "snap1", -EINVAL);
 
   C_SaferCond ctx;
@@ -395,8 +395,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapUnprotect) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
   m_client_meta.snap_seqs[remote_snap_id1] = local_snap_id1;
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
@@ -425,8 +425,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapUnprotectError) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
   m_client_meta.snap_seqs[remote_snap_id1] = local_snap_id1;
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
@@ -450,8 +450,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapUnprotectCancel) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
   m_client_meta.snap_seqs[remote_snap_id1] = local_snap_id1;
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
@@ -482,7 +482,7 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapUnprotectRemove) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
   librbd::MockTestImageCtx mock_local_image_ctx(*m_local_image_ctx);
@@ -491,7 +491,7 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapUnprotectRemove) {
 
   InSequence seq;
   expect_snap_is_unprotected(mock_local_image_ctx,
-                             m_local_image_ctx->snap_ids["snap1"], false, 0);
+                             m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")], false, 0);
   expect_snap_unprotect(mock_local_image_ctx, "snap1", 0);
   expect_snap_remove(mock_local_image_ctx, "snap1", 0);
   expect_snap_create(mock_local_image_ctx, mock_snapshot_create_request, "snap1", 12, 0);
@@ -512,7 +512,7 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapUnprotectRemove) {
 TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapCreateProtect) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
   librbd::MockTestImageCtx mock_local_image_ctx(*m_local_image_ctx);
@@ -541,8 +541,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapProtect) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
   m_client_meta.snap_seqs[remote_snap_id1] = local_snap_id1;
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
@@ -571,8 +571,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapProtectError) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
   m_client_meta.snap_seqs[remote_snap_id1] = local_snap_id1;
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);
@@ -597,8 +597,8 @@ TEST_F(TestMockImageSyncSnapshotCopyRequest, SnapProtectCancel) {
   ASSERT_EQ(0, create_snap(m_remote_image_ctx, "snap1", true));
   ASSERT_EQ(0, create_snap(m_local_image_ctx, "snap1", true));
 
-  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids["snap1"];
-  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids["snap1"];
+  uint64_t remote_snap_id1 = m_remote_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
+  uint64_t local_snap_id1 = m_local_image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")];
   m_client_meta.snap_seqs[remote_snap_id1] = local_snap_id1;
 
   librbd::MockTestImageCtx mock_remote_image_ctx(*m_remote_image_ctx);

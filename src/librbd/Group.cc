@@ -585,6 +585,7 @@ int group_snap_create(librados::IoCtx& group_ioctx,
   cls::rbd::GroupSnapshot group_snap;
   vector<cls::rbd::ImageSnapshotRef> image_snaps;
   std::string ind_snap_name;
+  cls::rbd::SnapshotNamespace image_snapshot_namespace;
 
   std::vector<librbd::IoCtx*> io_ctxs;
   std::vector<librbd::ImageCtx*> ictxs;
@@ -700,16 +701,19 @@ int group_snap_create(librados::IoCtx& group_ioctx,
 					   group_id,
 					   group_snap.id);
 
+  image_snapshot_namespace =
+		       cls::rbd::GroupSnapshotNamespace(group_ioctx.get_id(),
+							group_id,
+							group_snap.id);
+
   for (int i = 0; i < image_count; ++i) {
     ImageCtx *ictx = ictxs[i];
-    cls::rbd::SnapshotNamespace ne =
-			 cls::rbd::GroupSnapshotNamespace(group_ioctx.get_id(),
-							  group_id,
-							  group_snap.id);
 
     C_SaferCond* on_finish = new C_SaferCond;
 
-    ictx->operations->snap_create(ind_snap_name.c_str(), ne, on_finish);
+    ictx->operations->snap_create(ind_snap_name.c_str(),
+				  image_snapshot_namespace,
+				  on_finish);
 
     on_finishes[i] = on_finish;
   }
@@ -723,7 +727,7 @@ int group_snap_create(librados::IoCtx& group_ioctx,
     } else {
       ImageCtx *ictx = ictxs[i];
       ictx->snap_lock.get_read();
-      snap_t snap_id = ictx->get_snap_id(ind_snap_name);
+      snap_t snap_id = ictx->get_snap_id(image_snapshot_namespace, ind_snap_name);
       ictx->snap_lock.put_read();
       image_snaps[i].snap_id = snapid_t(snap_id);
       image_snaps[i].pool = ictx->data_ctx.get_id();

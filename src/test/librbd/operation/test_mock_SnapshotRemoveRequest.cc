@@ -106,7 +106,7 @@ public:
   }
 
   void expect_rm_snap(MockImageCtx &mock_image_ctx) {
-    EXPECT_CALL(mock_image_ctx, rm_snap(_, _)).Times(1);
+    EXPECT_CALL(mock_image_ctx, rm_snap(_, _, _)).Times(1);
   }
 
   void expect_release_snap_id(MockImageCtx &mock_image_ctx) {

@@ -197,7 +197,7 @@ public:
     EXPECT_CALL(mock_sync_point_create_request, send())
       .WillOnce(Invoke([this, &mock_local_image_ctx, &mock_sync_point_create_request, r]() {
           if (r == 0) {
-            mock_local_image_ctx.snap_ids["snap1"] = 123;
+            mock_local_image_ctx.snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")] = 123;
             m_client_meta.sync_points.emplace_back("snap1", boost::none);
           }
           m_threads->work_queue->queue(mock_sync_point_create_request.on_finish, r);
@@ -315,8 +315,8 @@ TEST_F(TestMockImageSync, RestartSync) {
 
   m_client_meta.sync_points = {{"snap1", boost::none},
                                {"snap2", "snap1", boost::none}};
-  mock_local_image_ctx.snap_ids["snap1"] = 123;
-  mock_local_image_ctx.snap_ids["snap2"] = 234;
+  mock_local_image_ctx.snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap1")] = 123;
+  mock_local_image_ctx.snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "snap2")] = 234;
 
   librbd::MockObjectMap *mock_object_map = new librbd::MockObjectMap();
   mock_local_image_ctx.object_map = mock_object_map;

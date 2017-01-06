@@ -213,7 +213,7 @@ void SnapshotRemoveRequest<I>::remove_snap_context() {
   ldout(cct, 5) << this << " " << __func__ << dendl;
 
   RWLock::WLocker snap_locker(image_ctx.snap_lock);
-  image_ctx.rm_snap(m_snap_name, m_snap_id);
+  image_ctx.rm_snap(cls::rbd::UserSnapshotNamespace(), m_snap_name, m_snap_id); // TODO
 }
 
 template <typename I>

@@ -698,7 +698,7 @@ void Operations<I>::snap_create(const char *snap_name,
   }
 
   m_image_ctx.snap_lock.get_read();
-  if (m_image_ctx.get_snap_id(snap_name) != CEPH_NOSNAP) {
+  if (m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name) != CEPH_NOSNAP) { // TODO
     m_image_ctx.snap_lock.put_read();
     on_finish->complete(-EEXIST);
     return;
@@ -730,7 +730,7 @@ void Operations<I>::execute_snap_create(const std::string &snap_name,
                 << dendl;
 
   m_image_ctx.snap_lock.get_read();
-  if (m_image_ctx.get_snap_id(snap_name) != CEPH_NOSNAP) {
+  if (m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name) != CEPH_NOSNAP) { // TODO
     m_image_ctx.snap_lock.put_read();
     on_finish->complete(-EEXIST);
     return;
@@ -767,7 +767,7 @@ int Operations<I>::snap_rollback(const char *snap_name,
       return -EROFS;
     }
 
-    uint64_t snap_id = m_image_ctx.get_snap_id(snap_name);
+    uint64_t snap_id = m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name); // TODO
     if (snap_id == CEPH_NOSNAP) {
       lderr(cct) << "No such snapshot found." << dendl;
       return -ENOENT;
@@ -804,7 +804,7 @@ void Operations<I>::execute_snap_rollback(const std::string &snap_name,
                 << dendl;
 
   m_image_ctx.snap_lock.get_read();
-  uint64_t snap_id = m_image_ctx.get_snap_id(snap_name);
+  uint64_t snap_id = m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name); // TODO
   if (snap_id == CEPH_NOSNAP) {
     lderr(cct) << "No such snapshot found." << dendl;
     m_image_ctx.snap_lock.put_read();
@@ -859,7 +859,7 @@ void Operations<I>::snap_remove(const char *snap_name, Context *on_finish) {
 
   // quickly filter out duplicate ops
   m_image_ctx.snap_lock.get_read();
-  if (m_image_ctx.get_snap_id(snap_name) == CEPH_NOSNAP) {
+  if (m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name) == CEPH_NOSNAP) { // TODO
     m_image_ctx.snap_lock.put_read();
     on_finish->complete(-ENOENT);
     return;
@@ -899,7 +899,7 @@ void Operations<I>::execute_snap_remove(const std::string &snap_name,
                 << dendl;
 
   m_image_ctx.snap_lock.get_read();
-  uint64_t snap_id = m_image_ctx.get_snap_id(snap_name);
+  uint64_t snap_id = m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name); // TODO
   if (snap_id == CEPH_NOSNAP) {
     lderr(m_image_ctx.cct) << "No such snapshot found." << dendl;
     m_image_ctx.snap_lock.put_read();
@@ -946,11 +946,11 @@ int Operations<I>::snap_rename(const char *srcname, const char *dstname) {
 
   {
     RWLock::RLocker l(m_image_ctx.snap_lock);
-    snap_id = m_image_ctx.get_snap_id(srcname);
+    snap_id = m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), srcname); // TODO
     if (snap_id == CEPH_NOSNAP) {
       return -ENOENT;
     }
-    if (m_image_ctx.get_snap_id(dstname) != CEPH_NOSNAP) {
+    if (m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), dstname) != CEPH_NOSNAP) { // TODO
       return -EEXIST;
     }
   }
@@ -991,7 +991,7 @@ void Operations<I>::execute_snap_rename(const uint64_t src_snap_id,
   }
 
   m_image_ctx.snap_lock.get_read();
-  if (m_image_ctx.get_snap_id(dest_snap_name) != CEPH_NOSNAP) {
+  if (m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), dest_snap_name) != CEPH_NOSNAP) { // TODO
     m_image_ctx.snap_lock.put_read();
     on_finish->complete(-EEXIST);
     return;
@@ -1033,7 +1033,7 @@ int Operations<I>::snap_protect(const char *snap_name) {
   {
     RWLock::RLocker snap_locker(m_image_ctx.snap_lock);
     bool is_protected;
-    r = m_image_ctx.is_snap_protected(m_image_ctx.get_snap_id(snap_name),
+    r = m_image_ctx.is_snap_protected(m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name), // TODO
                                       &is_protected);
     if (r < 0) {
       return r;
@@ -1078,7 +1078,7 @@ void Operations<I>::execute_snap_protect(const std::string &snap_name,
 
   m_image_ctx.snap_lock.get_read();
   bool is_protected;
-  int r = m_image_ctx.is_snap_protected(m_image_ctx.get_snap_id(snap_name),
+  int r = m_image_ctx.is_snap_protected(m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name), // TODO
                                         &is_protected);
   if (r < 0) {
     m_image_ctx.snap_lock.put_read();
@@ -1119,7 +1119,7 @@ int Operations<I>::snap_unprotect(const char *snap_name) {
   {
     RWLock::RLocker snap_locker(m_image_ctx.snap_lock);
     bool is_unprotected;
-    r = m_image_ctx.is_snap_unprotected(m_image_ctx.get_snap_id(snap_name),
+    r = m_image_ctx.is_snap_unprotected(m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name), // TODO
                                   &is_unprotected);
     if (r < 0) {
       return r;
@@ -1164,7 +1164,7 @@ void Operations<I>::execute_snap_unprotect(const std::string &snap_name,
 
   m_image_ctx.snap_lock.get_read();
   bool is_unprotected;
-  int r = m_image_ctx.is_snap_unprotected(m_image_ctx.get_snap_id(snap_name),
+  int r = m_image_ctx.is_snap_unprotected(m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name), // TODO
                                           &is_unprotected);
   if (r < 0) {
     m_image_ctx.snap_lock.put_read();

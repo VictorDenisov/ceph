@@ -311,7 +311,7 @@ public:
 
   void expect_get_snap_id(MockRefreshImageCtx &mock_image_ctx,
                           const std::string &snap_name, uint64_t snap_id) {
-    EXPECT_CALL(mock_image_ctx, get_snap_id(snap_name)).WillOnce(Return(snap_id));
+    EXPECT_CALL(mock_image_ctx, get_snap_id(static_cast<cls::rbd::SnapshotNamespace>(cls::rbd::UserSnapshotNamespace()), snap_name)).WillOnce(Return(snap_id)); // TODO
   }
 
   void expect_block_writes(MockImageCtx &mock_image_ctx, int r) {

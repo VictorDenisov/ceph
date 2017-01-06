@@ -62,7 +62,7 @@ void SyncPointPruneRequest<I>::send() {
          it != m_client_meta_copy.sync_points.rend(); ++it) {
       MirrorPeerSyncPoint &sync_point = *it;
       if (&sync_point == &m_client_meta_copy.sync_points.front()) {
-        if (m_remote_image_ctx->get_snap_id(sync_point.snap_name) ==
+        if (m_remote_image_ctx->get_snap_id(cls::rbd::UserSnapshotNamespace(), sync_point.snap_name) == // TODO
               CEPH_NOSNAP) {
           derr << ": failed to locate sync point snapshot: "
                << sync_point.snap_name << dendl;

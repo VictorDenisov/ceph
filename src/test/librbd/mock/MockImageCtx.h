@@ -138,7 +138,7 @@ struct MockImageCtx {
   MOCK_CONST_METHOD0(get_current_size, uint64_t());
   MOCK_CONST_METHOD1(get_image_size, uint64_t(librados::snap_t));
   MOCK_CONST_METHOD1(get_object_count, uint64_t(librados::snap_t));
-  MOCK_CONST_METHOD1(get_snap_id, librados::snap_t(std::string in_snap_name));
+  MOCK_CONST_METHOD2(get_snap_id, librados::snap_t(cls::rbd::SnapshotNamespace in_snap_namespace, std::string in_snap_name));
   MOCK_CONST_METHOD1(get_snap_info, const SnapInfo*(librados::snap_t));
   MOCK_CONST_METHOD2(get_snap_namespace, int(librados::snap_t,
 					     cls::rbd::SnapshotNamespace *out_snap_namespace));
@@ -155,7 +155,7 @@ struct MockImageCtx {
 			      librados::snap_t id,
                               uint64_t in_size, parent_info parent,
                               uint8_t protection_status, uint64_t flags));
-  MOCK_METHOD2(rm_snap, void(std::string in_snap_name, librados::snap_t id));
+  MOCK_METHOD3(rm_snap, void(cls::rbd::SnapshotNamespace in_snap_namespace, std::string in_snap_name, librados::snap_t id));
 
   MOCK_METHOD0(user_flushed, void());
   MOCK_METHOD1(flush, void(Context *));
@@ -198,7 +198,7 @@ struct MockImageCtx {
   ::SnapContext snapc;
   std::vector<librados::snap_t> snaps;
   std::map<librados::snap_t, SnapInfo> snap_info;
-  std::map<std::string, librados::snap_t> snap_ids;
+  std::map<pair<cls::rbd::SnapshotNamespace, std::string>, librados::snap_t> snap_ids;
 
   ObjectCacher *object_cacher;
   ObjectCacher::ObjectSet *object_set;

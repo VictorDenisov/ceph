@@ -85,7 +85,7 @@ int SnapshotProtectRequest<I>::verify_and_send_protect_snap() {
     return -ENOSYS;
   }
 
-  uint64_t snap_id = image_ctx.get_snap_id(m_snap_name);
+  uint64_t snap_id = image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), m_snap_name); // TODO
   if (snap_id == CEPH_NOSNAP) {
     return -ENOENT;
   }

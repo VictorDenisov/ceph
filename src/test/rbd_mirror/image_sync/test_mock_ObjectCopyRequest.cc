@@ -223,13 +223,13 @@ public:
                             librados::snap_t snap_id) {
     auto it = std::find_if(image_ctx->snap_ids.begin(),
                            image_ctx->snap_ids.end(),
-                           [snap_id](const std::pair<std::string, librados::snap_t> &pair) {
+                           [snap_id](const std::pair<std::pair<cls::rbd::SnapshotNamespace, std::string>, librados::snap_t> &pair) {
         return (pair.second == snap_id);
       });
     if (it == image_ctx->snap_ids.end()) {
       return "";
     }
-    return it->first;
+    return it->first.second;
   }
 
   int compare_objects() {

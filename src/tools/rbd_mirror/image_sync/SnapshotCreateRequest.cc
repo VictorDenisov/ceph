@@ -218,7 +218,7 @@ void SnapshotCreateRequest<I>::send_create_object_map() {
   }
 
   m_local_image_ctx->snap_lock.get_read();
-  auto snap_it = m_local_image_ctx->snap_ids.find(m_snap_name);
+  auto snap_it = m_local_image_ctx->snap_ids.find(make_pair(cls::rbd::UserSnapshotNamespace(), m_snap_name));
   if (snap_it == m_local_image_ctx->snap_ids.end()) {
     derr << ": failed to locate snap: " << m_snap_name << dendl;
     m_local_image_ctx->snap_lock.put_read();

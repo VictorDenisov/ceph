@@ -27,11 +27,11 @@ const std::string &get_snapshot_name(I *image_ctx, librados::snap_t snap_id) {
   auto snap_it = std::find_if(image_ctx->snap_ids.begin(),
                               image_ctx->snap_ids.end(),
                               [snap_id](
-      const std::pair<std::string, librados::snap_t> &pair) {
+      const std::pair<std::pair<cls::rbd::SnapshotNamespace, std::string>, librados::snap_t> &pair) {
     return pair.second == snap_id;
   });
   assert(snap_it != image_ctx->snap_ids.end());
-  return snap_it->first;
+  return snap_it->first.second;
 }
 
 } // anonymous namespace
@@ -362,7 +362,7 @@ void SnapshotCopyRequest<I>::handle_snap_create(int r) {
 
   assert(m_prev_snap_id != CEPH_NOSNAP);
 
-  auto snap_it = m_local_image_ctx->snap_ids.find(m_snap_name);
+  auto snap_it = m_local_image_ctx->snap_ids.find(make_pair(cls::rbd::UserSnapshotNamespace(), m_snap_name));
   assert(snap_it != m_local_image_ctx->snap_ids.end());
   librados::snap_t local_snap_id = snap_it->second;
 

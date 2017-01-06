@@ -744,7 +744,7 @@ TEST_F(TestImageReplayer, MultipleReplayFailures_SingleEpoch) {
   ASSERT_EQ(0, ictx->operations->snap_protect("foo"));
   ASSERT_EQ(0, librbd::cls_client::add_child(&ictx->md_ctx, RBD_CHILDREN,
                                              {ictx->md_ctx.get_id(),
-                                              ictx->id, ictx->snap_ids["foo"]},
+                                              ictx->id, ictx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "foo")]},
                                              "dummy child id"));
   close_image(ictx);
 
@@ -792,7 +792,7 @@ TEST_F(TestImageReplayer, MultipleReplayFailures_MultiEpoch) {
   ASSERT_EQ(0, ictx->operations->snap_protect("foo"));
   ASSERT_EQ(0, librbd::cls_client::add_child(&ictx->md_ctx, RBD_CHILDREN,
                                              {ictx->md_ctx.get_id(),
-                                              ictx->id, ictx->snap_ids["foo"]},
+                                              ictx->id, ictx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), "foo")]},
                                              "dummy child id"));
   close_image(ictx);
 

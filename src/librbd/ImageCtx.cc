@@ -406,7 +406,7 @@ struct C_InvalidateCache : public Context {
   int ImageCtx::snap_set(string in_snap_name)
   {
     assert(snap_lock.is_wlocked());
-    snap_t in_snap_id = get_snap_id(in_snap_name);
+    snap_t in_snap_id = get_snap_id(cls::rbd::UserSnapshotNamespace(), in_snap_name); //TODO
     if (in_snap_id != CEPH_NOSNAP) {
       snap_id = in_snap_id;
       snap_name = in_snap_name;
@@ -426,11 +426,12 @@ struct C_InvalidateCache : public Context {
     data_ctx.snap_set_read(snap_id);
   }
 
-  snap_t ImageCtx::get_snap_id(string in_snap_name) const
+  snap_t ImageCtx::get_snap_id(cls::rbd::SnapshotNamespace in_snap_namespace,
+			       string in_snap_name) const
   {
     assert(snap_lock.is_locked());
-    map<string, snap_t>::const_iterator it =
-      snap_ids.find(in_snap_name);
+    map<pair<cls::rbd::SnapshotNamespace, string>, snap_t>::const_iterator it =
+      snap_ids.find(make_pair(in_snap_namespace, in_snap_name));
     if (it != snap_ids.end())
       return it->second;
     return CEPH_NOSNAP;
@@ -550,15 +551,16 @@ struct C_InvalidateCache : public Context {
     SnapInfo info(in_snap_name, in_snap_namespace,
 		  in_size, parent, protection_status, flags);
     snap_info.insert(pair<snap_t, SnapInfo>(id, info));
-    snap_ids.insert(pair<string, snap_t>(in_snap_name, id));
+    snap_ids.insert(pair<pair<cls::rbd::SnapshotNamespace, string>, snap_t>(make_pair(in_snap_namespace, in_snap_name), id));
   }
 
-  void ImageCtx::rm_snap(string in_snap_name, snap_t id)
+  void ImageCtx::rm_snap(cls::rbd::SnapshotNamespace in_snap_namespace,
+			 string in_snap_name, snap_t id)
   {
     assert(snap_lock.is_wlocked());
     snaps.erase(std::remove(snaps.begin(), snaps.end(), id), snaps.end());
     snap_info.erase(id);
-    snap_ids.erase(in_snap_name);
+    snap_ids.erase(make_pair(in_snap_namespace, in_snap_name));
   }
 
   uint64_t ImageCtx::get_image_size(snap_t in_snap_id) const

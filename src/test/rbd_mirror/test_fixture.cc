@@ -106,12 +106,12 @@ int TestFixture::create_snap(librbd::ImageCtx *image_ctx, const char* snap_name,
     return r;
   }
 
-  if (image_ctx->snap_ids.count(snap_name) == 0) {
+  if (image_ctx->snap_ids.count(make_pair(cls::rbd::UserSnapshotNamespace(), snap_name)) == 0) {
     return -ENOENT;
   }
 
   if (snap_id != nullptr) {
-    *snap_id = image_ctx->snap_ids[snap_name];
+    *snap_id = image_ctx->snap_ids[make_pair(cls::rbd::UserSnapshotNamespace(), snap_name)];
   }
   return 0;
 }

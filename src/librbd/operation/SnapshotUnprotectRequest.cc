@@ -319,7 +319,7 @@ int SnapshotUnprotectRequest<I>::verify_and_send_unprotect_snap_start() {
     return -ENOSYS;
   }
 
-  m_snap_id = image_ctx.get_snap_id(m_snap_name);
+  m_snap_id = image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), m_snap_name); // TODO
   if (m_snap_id == CEPH_NOSNAP) {
     return -ENOENT;
   }

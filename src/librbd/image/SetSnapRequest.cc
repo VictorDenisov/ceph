@@ -121,7 +121,7 @@ Context *SetSnapRequest<I>::handle_block_writes(int *result) {
 
   {
     RWLock::RLocker snap_locker(m_image_ctx.snap_lock);
-    m_snap_id = m_image_ctx.get_snap_id(m_snap_name);
+    m_snap_id = m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), m_snap_name); // TODO
     if (m_snap_id == CEPH_NOSNAP) {
       ldout(cct, 5) << "failed to locate snapshot '" << m_snap_name << "'"
                     << dendl;

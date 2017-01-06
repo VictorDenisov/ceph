@@ -107,10 +107,10 @@ public:
   }
 
   void expect_get_snap_id(librbd::MockTestImageCtx &mock_image_ctx) {
-    EXPECT_CALL(mock_image_ctx, get_snap_id(_))
-      .WillRepeatedly(Invoke([&mock_image_ctx](std::string snap_name) {
+    EXPECT_CALL(mock_image_ctx, get_snap_id(_, _))
+      .WillRepeatedly(Invoke([&mock_image_ctx](cls::rbd::SnapshotNamespace in_snap_namespace, std::string snap_name) {
         assert(mock_image_ctx.image_ctx->snap_lock.is_locked());
-        return mock_image_ctx.image_ctx->get_snap_id(snap_name);
+        return mock_image_ctx.image_ctx->get_snap_id(in_snap_namespace, snap_name);
       }));
   }
 

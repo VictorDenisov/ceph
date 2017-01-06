@@ -1008,7 +1008,7 @@ void RefreshRequest<I>::apply() {
     m_image_ctx.snapc = m_snapc;
 
     if (m_image_ctx.snap_id != CEPH_NOSNAP &&
-        m_image_ctx.get_snap_id(m_image_ctx.snap_name) != m_image_ctx.snap_id) {
+        m_image_ctx.get_snap_id(cls::rbd::UserSnapshotNamespace(), m_image_ctx.snap_name) != m_image_ctx.snap_id) {
       lderr(cct) << "tried to read from a snapshot that no longer exists: "
                  << m_image_ctx.snap_name << dendl;
       m_image_ctx.snap_exists = false;

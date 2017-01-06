@@ -640,7 +640,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
     ldout(cct, 20) << "children flatten " << ictx->name << dendl;
 
     RWLock::RLocker l(ictx->snap_lock);
-    snap_t snap_id = ictx->get_snap_id(snap_name);
+    snap_t snap_id = ictx->get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name); //TODO
     parent_spec parent_spec(ictx->md_ctx.get_id(), ictx->id, snap_id);
     map< pair<int64_t, string>, set<string> > image_info;
 
@@ -820,7 +820,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       return r;
 
     RWLock::RLocker l(ictx->snap_lock);
-    snap_t snap_id = ictx->get_snap_id(snap_name);
+    snap_t snap_id = ictx->get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name); // TODO
     if (snap_id == CEPH_NOSNAP)
       return -ENOENT;
     r = ictx->get_snap_namespace(snap_id, snap_namespace);
@@ -838,7 +838,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       return r;
 
     RWLock::RLocker l(ictx->snap_lock);
-    snap_t snap_id = ictx->get_snap_id(snap_name);
+    snap_t snap_id = ictx->get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name); //TODO
     if (snap_id == CEPH_NOSNAP)
       return -ENOENT;
     bool is_unprotected;
@@ -1773,7 +1773,7 @@ int mirror_image_disable_internal(ImageCtx *ictx, bool force,
       return r;
 
     RWLock::RLocker l(ictx->snap_lock);
-    *exists = ictx->get_snap_id(snap_name) != CEPH_NOSNAP; 
+    *exists = ictx->get_snap_id(cls::rbd::UserSnapshotNamespace(), snap_name) != CEPH_NOSNAP; // TODO
     return 0;
   }
 

@@ -117,7 +117,7 @@ int EventPreprocessor<I>::preprocess_snap_rename(
     return 0;
   }
 
-  auto snap_id_it = m_local_image_ctx.snap_ids.find(event.src_snap_name);
+  auto snap_id_it = m_local_image_ctx.snap_ids.find(make_pair(cls::rbd::UserSnapshotNamespace(), event.src_snap_name));
   if (snap_id_it == m_local_image_ctx.snap_ids.end()) {
     dout(20) << ": cannot map remote snapshot '" << event.src_snap_name << "' "
              << "to local snapshot" << dendl;

@@ -31,7 +31,7 @@ public:
   typedef SnapshotProtectRequest<MockImageCtx> MockSnapshotProtectRequest;
 
   void expect_get_snap_id(MockImageCtx &mock_image_ctx, uint64_t snap_id) {
-    EXPECT_CALL(mock_image_ctx, get_snap_id(_))
+    EXPECT_CALL(mock_image_ctx, get_snap_id(_, _))
                   .WillOnce(Return(snap_id));
   }
 
